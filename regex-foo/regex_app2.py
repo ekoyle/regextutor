@@ -4,6 +4,7 @@
 
 import wx
 import re
+import re_parse
 
 # begin wxGlade: extracode
 from wx import stc
@@ -47,10 +48,103 @@ style_definitions = {
         0x20:'fore:#ffffff,back:#0000000' # "default"
         }
 
+group_color_names = [
+        'WHITE', # N/A
+        'BLUE',
+        'GREEN',
+        'YELLOW',
+        'ORANGE',
+        'ORANGE RED',
+        'VIOLET',
+        'VIOLET RED',
+
+        #'AQUAMARINE',
+        #'BLACK',
+        #'BLUE',
+        #'BLUE VIOLET',
+        #'BROWN',
+        #'CADET BLUE',
+        #'CORAL',
+        #'CORNFLOWER BLUE',
+        #'CYAN',
+        #'DARK GREY',
+        #'DARK GREEN',
+        #'DARK OLIVE GREEN',
+        #'DARK ORCHID',
+        #'DARK SLATE BLUE',
+        #'DARK SLATE GREY',
+        #'DARK TURQUOISE',
+        #'DIM GREY',
+        #'FIREBRICK',
+        #'FOREST GREEN',
+        #'GOLD',
+        #'GOLDENROD',
+        #'GREY',
+        #'GREEN',
+        #'GREEN YELLOW',
+        #'INDIAN RED',
+        #'KHAKI',
+        #'LIGHT BLUE',
+        #'LIGHT GREY',
+        #'LIGHT STEEL BLUE',
+        #'LIME GREEN',
+        #'MAGENTA',
+        #'MAROON',
+        #'MEDIUM AQUAMARINE',
+        #'MEDIUM BLUE',
+        #'MEDIUM FOREST GREEN',
+        #'MEDIUM GOLDENROD',
+        #'MEDIUM ORCHID',
+        #'MEDIUM SEA GREEN',
+        #'MEDIUM SLATE BLUE',
+        #'MEDIUM SPRING GREEN',
+        #'MEDIUM TURQUOISE',
+        #'MEDIUM VIOLET RED',
+        #'MIDNIGHT BLUE',
+        #'NAVY',
+        #'ORANGE',
+        #'ORANGE RED',
+        #'ORCHID',
+        #'PALE GREEN',
+        #'PINK',
+        #'PLUM',
+        #'PURPLE',
+        #'RED',
+        #'SALMON',
+        #'SEA GREEN',
+        #'SIENNA',
+        #'SKY BLUE',
+        #'SLATE BLUE',
+        #'SPRING GREEN',
+        #'STEEL BLUE',
+        #'TAN',
+        #'THISTLE',
+        #'TURQUOISE',
+        #'VIOLET',
+        #'VIOLET RED',
+        #'WHEAT',
+        #'WHITE',
+        #'YELLOW',
+        #'YELLOW GREEN',
+        ]
+
+group_styles = None
+default_font = None
+default_style = None
+
+
 class MyPatternStyledTextCtrl(wx.TextCtrl):
     def __init__(self, *args, **kw):
+        if not kw.has_key('style'):
+            kw['style'] = wx.TE_RICH2
         wx.TextCtrl.__init__(self, *args, **kw)
+        if not self.SetDefaultStyle( default_style ):
+            print "Failed to set default style."
+        self.SetBackgroundColour('BLACK')
+        self.SetForegroundColour('WHITE')
         self._re_style='Extended'
+        if self._re_style == 'Extended':
+            self._re_parser = re_parse.ExtendedREParser(self)
     def SetTextBox(self, box):
         self.__text_box = box
     def SetReStyle(self, style):
@@ -63,6 +157,8 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
     def OnUpdate(self, evt):
         print 'OnUpdate'
         regex = self.GetValue()
+        # do some color foo
+        self._re_parser.parse(regex)
         regex = self.ConvertRegex(regex)
         print regex
         if '\n' in regex:
@@ -71,6 +167,48 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
         # pretty colors, please
         # update text box
         self.__text_box.SetRegex(regex)
+
+    def startParsing(self,s):
+        self.parse_groups = {}
+        self.parse_string = s
+        self.parse_format = [0] * len(s)
+        self.parse_operations = []
+        self.num_groups = None
+    def endParsing(self):
+        self.__curr_group = 1
+        self.num_groups = len(self.parse_groups)
+        for k in sorted(self.parse_groups.keys()):
+            self.colorGroup( *(self.parse_groups[k]) )
+            self.__curr_group += 1
+        for operation, args in self.parse_operations:
+            operation(*args)
+        del self.__curr_group
+    def handleType(self, s, loc, toks, t_func):
+        self.parse_operations.insert(0, (t_func, (loc, re_parse.toklen(toks[0]),
+            loc+re_parse.toklen(toks) - re_parse.toklen(toks[-1]), re_parse.toklen(toks[-1]))) )
+    def handleDupl(self, s, loc, toks):
+        self.handleType(s,loc,toks,self.colorDupl)
+    def handleGroup(self, s, loc, toks):
+        #self.handleType(s,loc,toks,self.colorGroup)
+        self.parse_groups[loc] = (loc, re_parse.toklen(toks[0]),
+                loc+re_parse.toklen(toks) - re_parse.toklen(toks[-1]), re_parse.toklen(toks[-1]), )
+    def handleBracketList(self, s, loc, toks):
+        self.handleType(s,loc,toks,self.colorBracketList)
+
+    def colorDupl(self, start, startlen, end, endlen):
+        print 'colorDupl'
+
+    def colorGroup(self, start, startlen, end, endlen):
+        group_num = self.__curr_group
+        self.SetInsertionPoint(0)
+        if not self.SetStyle( start, end, group_styles[group_num] ): print 'Failed to set group color.'
+        print 'colorGroup', start, end, group_num
+        print dir(group_styles[group_num])
+        print group_styles[group_num].GetBackgroundColour()
+        print group_styles[group_num].GetTextColour()
+
+    def colorBracketList(self, start, startlen, end, endlen):
+        print 'colorBracketList'
     
 class MyReChoice(wx.Choice):
     def SetTextCtrl(self, ctrl):
@@ -80,9 +218,15 @@ class MyReChoice(wx.Choice):
 
 class MyFrame(wx.Frame):
     def __init__(self, *args, **kwds):
+        wx.Frame.__init__(self, *args, **kwds)
+        global group_styles
+        group_styles = [ wx.TextAttr( i, 'BLACK' ) for i in group_color_names ]
+        global default_font
+        default_font = wx.Font(12,wx.FONTSTYLE_NORMAL,wx.FONTFAMILY_TELETYPE,wx.FONTWEIGHT_NORMAL)
+        global default_style
+        default_style = wx.TextAttr( i, 'BLACK', )
         # begin wxGlade: MyFrame.__init__
         kwds["style"] = wx.DEFAULT_FRAME_STYLE
-        wx.Frame.__init__(self, *args, **kwds)
         self.notebook_1 = wx.Notebook(self)
         self.pattern_matching_pane = wx.Panel(self.notebook_1, -1)
         self.search_replace_pane = wx.Panel(self.notebook_1, -1)
@@ -210,7 +354,7 @@ class MyStyledTextCtrl(stc.StyledTextCtrl):
                         else:
                             style[j] = new_style
             self.StartStyling(line_start,0xff)
-            print 'StartStyling(%s,...)' % line_start
+            #print 'StartStyling(%s,...)' % line_start
             style_str = ''.join(map(chr,style))
             self.SetStyleBytes(len(style), style_str)
             print 'SetStyleBytes(...,%s)' % style

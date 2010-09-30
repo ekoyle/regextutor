@@ -129,10 +129,11 @@ class ExtendedREParser(BaseREParser):
 		self.parser = pp.LineStart() + extended_reg_exp + pp.LineEnd()
 
 def toklen(toks):
-	if type(toks) == types.StringType:
+	if type(toks) in ( types.StringType, types.UnicodeType):
 		return len(toks)
 	tlen = 0
 	for t in toks:
+		print type(toks), type(t)
 		tlen += toklen(t)
 	return tlen
 
