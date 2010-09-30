@@ -134,6 +134,38 @@ default_style = None
 DUPL_STYLE = None
 BRACKET_STYLE = None
 
+class MyTextStyle(object):
+    # this will be slow, but I don't really mind much
+    def __init__(self):
+        # list of (start, stop, style)
+        self.__data = []
+    def set_style(self, start, stop, style):
+        d_match = None
+        # Try to find the most-specific current style
+        for i in range(len(self.__data)):
+            d = self.__data[i]
+            d_start, d_stop, d_style = d
+            if start >= d_start and start <= d_stop:
+                # sub-range?
+                if d_stop < stop:
+                    raise Exception('attempted to style across style boundaries -- bad')
+                d_match = i
+                break
+
+         # most specific to least specific
+         if d_match:
+             self.__data.insert( d_match, (start, stop, style) )
+         else:
+             self.__data.append( (start, stop, style) )
+
+     def get_style(self, pos):
+         for i in range(len(self.__data)):
+             d_start, d_stop, d_style = self.__data[i]
+             if pos >= d_start and pos <= d_stop:
+                 return d_style
+         return default_style
+
+
 def style_init():
     global DUPL_STYLE
     DUPL_STYLE = wx.TextAttr(wx.NullColour,"NAVY")
@@ -186,6 +218,7 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
         self.__text_box.SetRegex(regex)
 
     def startParsing(self,s):
+        self._clear_style()
         self.parse_groups = {}
         self.parse_string = s
         self.parse_format = [0] * len(s)
@@ -212,17 +245,29 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
     def handleBracketList(self, s, loc, toks):
         self.handleType(s,loc,toks,self.colorBracketList)
 
-    def setTextStyle(self, start, end, style):
+    def setTextStyle_direct(self, start, end, style):
         ins_point = self.GetInsertionPoint()
         curr_style = wx.TextAttr()
-        self.SetInsertionPoint(0)
-        success = self.GetStyle(start,curr_style)
-        if not success:
-            print "Failed to get current style"
+        #self.SetInsertionPoint(0)
+        # Does not work with GTK :(
+        #success = self.GetStyle(start,curr_style)
+        #if not success:
+        #    print "Failed to get current style"
         self.SetInsertionPoint(0)
         if not self.SetStyle( start, end, curr_style.Merge(style, curr_style) ): print 'Failed to set color.'
         self.SetInsertionPoint(ins_point)
-        
+
+    def _clear_style(self):
+        self._style = MyTextStyle()
+    def _get_style_at(self, loc):
+        pass
+    def _set_style(self, start, end):
+        pass
+    def setTextStyle(self, start, end, style):
+        curr_style = self._get_style_at(start)
+        use_style = curr_style.Merge(style, curr_style)
+        self._set_style(start, end, use_style)
+
     def colorDupl(self, start, startlen, end, endlen):
         self.setTextStyle( start, end + endlen, DUPL_STYLE )
         print 'colorDupl'
