@@ -50,7 +50,7 @@ style_definitions = {
 
 group_color_names = [
         'WHITE', # N/A
-        'BLUE',
+        'CYAN',
         'GREEN',
         'YELLOW',
         'ORANGE',
@@ -131,17 +131,34 @@ group_color_names = [
 group_styles = None
 default_font = None
 default_style = None
+DUPL_STYLE = None
+BRACKET_STYLE = None
+
+def style_init():
+    global DUPL_STYLE
+    DUPL_STYLE = wx.TextAttr(wx.NullColour,"NAVY")
+    bracket_font = wx.Font(12,wx.FONTSTYLE_NORMAL,wx.FONTFAMILY_TELETYPE,wx.FONTWEIGHT_BOLD)
+    global BRACKET_STYLE
+    #BRACKET_STYLE = wx.TextAttr(wx.NullColour,"DARK GREY",bracket_font)
+    BRACKET_STYLE = wx.TextAttr(wx.NullColour,wx.NullColour,bracket_font)
+    global group_styles
+    group_styles = [ wx.TextAttr( i, wx.NullColour ) for i in group_color_names ]
+    global default_font
+    default_font = wx.Font(12,wx.FONTSTYLE_NORMAL,wx.FONTFAMILY_TELETYPE,wx.FONTWEIGHT_NORMAL)
+    global default_style
+    default_style = wx.TextAttr( i, 'BLACK', default_font)
 
 
 class MyPatternStyledTextCtrl(wx.TextCtrl):
     def __init__(self, *args, **kw):
         if not kw.has_key('style'):
-            kw['style'] = wx.TE_RICH2
+            kw['style'] = wx.TE_RICH2 | wx.TE_MULTILINE
         wx.TextCtrl.__init__(self, *args, **kw)
         if not self.SetDefaultStyle( default_style ):
             print "Failed to set default style."
         self.SetBackgroundColour('BLACK')
         self.SetForegroundColour('WHITE')
+        self.SetFont(default_font)
         self._re_style='Extended'
         if self._re_style == 'Extended':
             self._re_parser = re_parse.ExtendedREParser(self)
@@ -195,19 +212,31 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
     def handleBracketList(self, s, loc, toks):
         self.handleType(s,loc,toks,self.colorBracketList)
 
+    def setTextStyle(self, start, end, style):
+        ins_point = self.GetInsertionPoint()
+        curr_style = wx.TextAttr()
+        self.SetInsertionPoint(0)
+        success = self.GetStyle(start,curr_style)
+        if not success:
+            print "Failed to get current style"
+        self.SetInsertionPoint(0)
+        if not self.SetStyle( start, end, curr_style.Merge(style, curr_style) ): print 'Failed to set color.'
+        self.SetInsertionPoint(ins_point)
+        
     def colorDupl(self, start, startlen, end, endlen):
+        self.setTextStyle( start, end + endlen, DUPL_STYLE )
         print 'colorDupl'
 
     def colorGroup(self, start, startlen, end, endlen):
         group_num = self.__curr_group
-        self.SetInsertionPoint(0)
-        if not self.SetStyle( start, end, group_styles[group_num] ): print 'Failed to set group color.'
+        self.setTextStyle( start, end + endlen, group_styles[group_num] )
         print 'colorGroup', start, end, group_num
-        print dir(group_styles[group_num])
-        print group_styles[group_num].GetBackgroundColour()
-        print group_styles[group_num].GetTextColour()
+        #print dir(group_styles[group_num])
+        #print group_styles[group_num].GetBackgroundColour()
+        #print group_styles[group_num].GetTextColour()
 
     def colorBracketList(self, start, startlen, end, endlen):
+        self.setTextStyle( start, end + endlen, BRACKET_STYLE )
         print 'colorBracketList'
     
 class MyReChoice(wx.Choice):
@@ -219,12 +248,7 @@ class MyReChoice(wx.Choice):
 class MyFrame(wx.Frame):
     def __init__(self, *args, **kwds):
         wx.Frame.__init__(self, *args, **kwds)
-        global group_styles
-        group_styles = [ wx.TextAttr( i, 'BLACK' ) for i in group_color_names ]
-        global default_font
-        default_font = wx.Font(12,wx.FONTSTYLE_NORMAL,wx.FONTFAMILY_TELETYPE,wx.FONTWEIGHT_NORMAL)
-        global default_style
-        default_style = wx.TextAttr( i, 'BLACK', )
+        style_init()
         # begin wxGlade: MyFrame.__init__
         kwds["style"] = wx.DEFAULT_FRAME_STYLE
         self.notebook_1 = wx.Notebook(self)
@@ -272,7 +296,7 @@ class MyFrame(wx.Frame):
         main_pattern_sizer = wx.BoxSizer(wx.VERTICAL)
         main_pattern_sizer.Add(self.pattern_match_pattern, 0, wx.EXPAND, 0)
         main_pattern_sizer.Add(pattern_options_sizer, 0, wx.EXPAND, 0)
-        main_pattern_sizer.Add(self.pattern_match_text, 3, wx.EXPAND, 0)
+        main_pattern_sizer.Add(self.pattern_match_text, 100, wx.EXPAND, 0)
         self.pattern_matching_pane.SetSizer(main_pattern_sizer)
 
         
