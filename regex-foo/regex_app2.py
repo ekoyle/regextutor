@@ -133,6 +133,9 @@ default_font = None
 default_style = None
 DUPL_STYLE = None
 BRACKET_STYLE = None
+STR_ESC_STYLE = None
+RE_ESC_STYLE = None
+RANGE_STYLE = None
 
 class MyTextStyle(object):
     # this will be slow, but I don't really mind much
@@ -145,7 +148,7 @@ class MyTextStyle(object):
         for i in range(len(self.__data)):
             d = self.__data[i]
             d_start, d_stop, d_style = d
-            if start >= d_start and start <= d_stop:
+            if start >= d_start and start < d_stop:
                 # sub-range?
                 if d_stop < stop:
                     raise Exception('attempted to style across style boundaries -- bad')
@@ -153,20 +156,24 @@ class MyTextStyle(object):
                 break
 
          # most specific to least specific
-         if d_match:
-             self.__data.insert( d_match, (start, stop, style) )
-         else:
-             self.__data.append( (start, stop, style) )
+        if d_match:
+            self.__data.insert( d_match, (start, stop, style) )
+        else:
+            self.__data.append( (start, stop, style) )
 
-     def get_style(self, pos):
-         for i in range(len(self.__data)):
+    def get_style(self, pos):
+        for i in range(len(self.__data)):
              d_start, d_stop, d_style = self.__data[i]
-             if pos >= d_start and pos <= d_stop:
+             if pos >= d_start and pos < d_stop:
                  return d_style
-         return default_style
+        return default_style
+
+    def get_style_data(self):
+        return sorted(self.__data[:])
 
 
 def style_init():
+    # wx is goofy about fonts... we have to create an App first...
     global DUPL_STYLE
     DUPL_STYLE = wx.TextAttr(wx.NullColour,"NAVY")
     bracket_font = wx.Font(12,wx.FONTSTYLE_NORMAL,wx.FONTFAMILY_TELETYPE,wx.FONTWEIGHT_BOLD)
@@ -178,8 +185,16 @@ def style_init():
     global default_font
     default_font = wx.Font(12,wx.FONTSTYLE_NORMAL,wx.FONTFAMILY_TELETYPE,wx.FONTWEIGHT_NORMAL)
     global default_style
-    default_style = wx.TextAttr( i, 'BLACK', default_font)
+    default_style = wx.TextAttr( 'WHITE', 'BLACK', default_font)
+    global STR_ESC_STYLE
+    STR_ESC_STYLE = wx.TextAttr( 'LIGHT GREEN', wx.NullColour)
+    global RE_ESC_STYLE
+    RE_ESC_STYLE = wx.TextAttr( 'LIGHT BLUE', wx.NullColour )
+    global RANGE_STYLE
+    RANGE_STYLE = wx.TextAttr(wx.NullColour, wx.NullColour, default_font)
 
+def print_style(style):
+    print style.GetFont(), style.GetTextColour(), style.GetBackgroundColour()
 
 class MyPatternStyledTextCtrl(wx.TextCtrl):
     def __init__(self, *args, **kw):
@@ -232,6 +247,7 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
             self.__curr_group += 1
         for operation, args in self.parse_operations:
             operation(*args)
+        self._apply_style()
         del self.__curr_group
     def handleType(self, s, loc, toks, t_func):
         self.parse_operations.insert(0, (t_func, (loc, re_parse.toklen(toks[0]),
@@ -244,6 +260,12 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
                 loc+re_parse.toklen(toks) - re_parse.toklen(toks[-1]), re_parse.toklen(toks[-1]), )
     def handleBracketList(self, s, loc, toks):
         self.handleType(s,loc,toks,self.colorBracketList)
+    def handleReEscape(self, s, loc, toks):
+        self.handleType(s,loc,toks,self.colorReEscape)
+    def handleStringEscape(self, s, loc, toks):
+        self.handleType(s,loc,toks,self.colorStringEscape)
+    def handleRange(self, s, loc, toks):
+        self.handleType(s,loc,toks,self.colorRange)
 
     def setTextStyle_direct(self, start, end, style):
         ins_point = self.GetInsertionPoint()
@@ -259,14 +281,27 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
 
     def _clear_style(self):
         self._style = MyTextStyle()
-    def _get_style_at(self, loc):
-        pass
-    def _set_style(self, start, end):
-        pass
+
+    def _apply_style(self):
+        ins_point = self.GetInsertionPoint()
+        for start, end, style in self._style.get_style_data():
+            print start, end,
+            print_style( style )
+            self.SetInsertionPoint(0)
+            if not self.SetStyle( start, end, style ): print 'Failed to set style: (%s,%s,%s)' % (start,end,style)
+        self.SetInsertionPoint(ins_point)
+
     def setTextStyle(self, start, end, style):
-        curr_style = self._get_style_at(start)
-        use_style = curr_style.Merge(style, curr_style)
-        self._set_style(start, end, use_style)
+        curr_style = self._style.get_style(start)
+        print 'style:',
+        print_style(style)
+        print 'curr_style:',
+        print_style(curr_style)
+        print 'use_style:',
+        use_style = curr_style.Merge(curr_style, style)
+        print_style(use_style)
+        self._style.set_style(start, end, use_style)
+        
 
     def colorDupl(self, start, startlen, end, endlen):
         self.setTextStyle( start, end + endlen, DUPL_STYLE )
@@ -283,6 +318,18 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
     def colorBracketList(self, start, startlen, end, endlen):
         self.setTextStyle( start, end + endlen, BRACKET_STYLE )
         print 'colorBracketList'
+    
+    def colorReEscape(self, start, startlen, end, endlen):
+        self.setTextStyle( start, end + endlen, RE_ESC_STYLE )
+        print 'colorReEscape'
+    
+    def colorStringEscape(self, start, startlen, end, endlen):
+        self.setTextStyle( start, end + endlen, STR_ESC_STYLE )
+        print 'colorStringEscape'
+    
+    def colorRange(self, start, startlen, end, endlen):
+        self.setTextStyle( start, end + endlen, RANGE_STYLE )
+        print 'colorRange'
     
 class MyReChoice(wx.Choice):
     def SetTextCtrl(self, ctrl):
