@@ -11,42 +11,7 @@ from wx import stc
 # end wxGlade
 
 STYLE_OVERLAP=0x80 # underline
-STYLE_DEFAULT=0x00
-
-style_definitions = {
-        0x00:'fore:#ffffff,back:#000000',
-        0x01:'fore:#ff5555,back:#000000,bold',
-        0x02:'fore:#55ff55,back:#000000,bold',
-        0x03:'fore:#5555ff,back:#000000,bold',
-        0x04:'fore:#55ffff,back:#000000,bold',
-        0x05:'fore:#ff55ff,back:#000000,bold',
-        0x06:'fore:#ffff55,back:#000000,bold',
-        0x07:'fore:#ff0000,back:#000000,bold',
-        0x08:'fore:#00ff00,back:#000000,bold',
-        0x09:'fore:#0000ff,back:#000000,bold',
-        0x0a:'fore:#00ffff,back:#000000,bold',
-        0x0b:'fore:#ff00ff,back:#000000,bold',
-        0x0c:'fore:#ffff00,back:#000000,bold',
-        0x0d:'fore:#ffaaaa,back:#000000,bold',
-        0x0e:'fore:#aaffaa,back:#000000,bold',
-        0x0f:'fore:#aaaaff,back:#000000,bold',
-        0x11:'fore:#ff5555,back:#550000,bold',
-        0x12:'fore:#55ff55,back:#550000,bold',
-        0x13:'fore:#5555ff,back:#550000,bold',
-        0x14:'fore:#55ffff,back:#550000,bold',
-        0x15:'fore:#ff55ff,back:#550000,bold',
-        0x16:'fore:#ffff55,back:#550000,bold',
-        0x17:'fore:#ff0000,back:#550000,bold',
-        0x18:'fore:#00ff00,back:#550000,bold',
-        0x19:'fore:#0000ff,back:#550000,bold',
-        0x1a:'fore:#00ffff,back:#550000,bold',
-        0x1b:'fore:#ff00ff,back:#550000,bold',
-        0x1c:'fore:#ffff00,back:#550000,bold',
-        0x1d:'fore:#ffaaaa,back:#550000,bold',
-        0x1e:'fore:#aaffaa,back:#550000,bold',
-        0x1f:'fore:#aaaaff,back:#550000,bold',
-        0x20:'fore:#ffffff,back:#0000000' # "default"
-        }
+STYLE_DEFAULT=0x0
 
 group_color_names = [
         'WHITE', # N/A
@@ -176,14 +141,14 @@ def style_init():
     # wx is goofy about fonts... we have to create an App first...
     global DUPL_STYLE
     DUPL_STYLE = wx.TextAttr(wx.NullColour,"NAVY")
-    bracket_font = wx.Font(12,wx.FONTSTYLE_NORMAL,wx.FONTFAMILY_TELETYPE,wx.FONTWEIGHT_BOLD)
+    bracket_font = wx.Font(12,wx.FONTSTYLE_NORMAL,wx.NORMAL,wx.FONTWEIGHT_BOLD,faceName='Courier')
     global BRACKET_STYLE
     #BRACKET_STYLE = wx.TextAttr(wx.NullColour,"DARK GREY",bracket_font)
     BRACKET_STYLE = wx.TextAttr(wx.NullColour,wx.NullColour,bracket_font)
     global group_styles
     group_styles = [ wx.TextAttr( i, wx.NullColour ) for i in group_color_names ]
     global default_font
-    default_font = wx.Font(12,wx.FONTSTYLE_NORMAL,wx.FONTFAMILY_TELETYPE,wx.FONTWEIGHT_NORMAL)
+    default_font = wx.Font(12,wx.FONTSTYLE_NORMAL,wx.NORMAL,wx.FONTWEIGHT_NORMAL,faceName='Courier')
     global default_style
     default_style = wx.TextAttr( 'WHITE', 'BLACK', default_font)
     global STR_ESC_STYLE
@@ -365,8 +330,13 @@ class MyFrame(wx.Frame):
         self.Bind(stc.EVT_STC_STYLENEEDED, self.pattern_match_text.DoRegexStyle, self.pattern_match_text)
         self.Bind(wx.EVT_TEXT, self.pattern_match_pattern.OnUpdate, self.pattern_match_pattern)
         self.Bind(wx.EVT_CHAR, self.pattern_match_pattern.OnUpdate, self.pattern_match_pattern)
-        for k in sorted(style_definitions.keys()):
-            self.pattern_match_text.StyleSetSpec(k, style_definitions[k])
+        self.pattern_match_text.StyleSetSpec( 0x20, 'fore:#999999,back:#0000000,face:Courier,size:14') # "default"
+        self.pattern_match_text.StyleSetSpec( 0x00, 'fore:#999999,back:#0000000,face:Courier,size:14')
+        for i in range(len(group_color_names)):
+            self.pattern_match_text.StyleSetForeground(i+1,group_color_names[i])
+            self.pattern_match_text.StyleSetBackground(i+1,'BLACK')
+        #for k in sorted(style_definitions.keys()):
+            #self.pattern_match_text.StyleSetSpec(k, style_definitions[k])
             #print "k: 0x%02x, style: %s" % (k,style_definitions[k])
         #self.__test_styles(self.pattern_match_text)
 
@@ -469,7 +439,7 @@ class MyStyledTextCtrl(stc.StyledTextCtrl):
                             style[j] = new_style | STYLE_OVERLAP
                         else:
                             style[j] = new_style
-            self.StartStyling(line_start,0xff)
+            self.StartStyling(line_start, 0xff)
             #print 'StartStyling(%s,...)' % line_start
             style_str = ''.join(map(chr,style))
             self.SetStyleBytes(len(style), style_str)
