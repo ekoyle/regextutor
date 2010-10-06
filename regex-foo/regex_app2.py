@@ -102,6 +102,8 @@ STR_ESC_STYLE = None
 RE_ESC_STYLE = None
 RANGE_STYLE = None
 
+FONT_SIZE=14
+
 class MyTextStyle(object):
     # this will be slow, but I don't really mind much
     def __init__(self):
@@ -141,7 +143,7 @@ def style_init():
     # wx is goofy about fonts... we have to create an App first...
     global DUPL_STYLE
     DUPL_STYLE = wx.TextAttr(wx.NullColour,"NAVY")
-    bracket_font = wx.Font(12,wx.FONTSTYLE_NORMAL,wx.NORMAL,wx.FONTWEIGHT_BOLD,faceName='Courier')
+    bracket_font = wx.Font(FONT_SIZE,wx.FONTSTYLE_NORMAL,wx.NORMAL,wx.FONTWEIGHT_BOLD,faceName='Courier')
     global BRACKET_STYLE
     #BRACKET_STYLE = wx.TextAttr(wx.NullColour,"DARK GREY",bracket_font)
     BRACKET_STYLE = wx.TextAttr(wx.NullColour,wx.NullColour,bracket_font)
@@ -313,10 +315,14 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
 class MyStyledTextCtrl(wx.stc.StyledTextCtrl):
     def __init__(self, *args, **kw):
         stc.StyledTextCtrl.__init__(self, *args, **kw)
-        self.StyleSetSpec( 0x20, 'fore:#999999,back:#0000000,face:Courier,size:14') # "default"
-        self.StyleSetSpec( 0x00, 'fore:#999999,back:#0000000,face:Courier,size:14')
+        self.StyleSetSpec( 0x20, 'fore:#808080,back:#0000000,face:Courier,size:%s' % FONT_SIZE) # "default"
+        self.StyleSetSpec( 0x00, 'fore:#808080,back:#0000000,face:Courier,size:%s' % FONT_SIZE)
         self.SetLexer(stc.STC_LEX_CONTAINER)
         self._callbacks = []
+        for i in range(len(group_color_names)):
+            self.StyleSetForeground(i+1,group_color_names[i])
+            self.StyleSetBackground(i+1,'BLACK')
+        print self
 
     def AddHandler(self, handler):
         self._callbacks.append(handler)
@@ -348,22 +354,24 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
             line = self.GetLine(current)
 
             #print line, line_start
-            match = self._regex.search(line)
+            # FIXME: can we just treat this as a single line?
             style = [STYLE_DEFAULT] * len(line)
-            if match:
-                num_groups = len(match.groups())
-                for i in range(num_groups+1):
-                    for j in range(match.start(i), match.end(i)):
-                        new_style = self.get_style(i)
-                        if style[j] != STYLE_DEFAULT:
+            for match in self._regex.finditer(line):
+                if match:
+                    num_groups = len(match.groups())
+                    for i in range(num_groups+1):
+                        for j in range(match.start(i), match.end(i)):
+                            new_style = self.get_style(i)
                             style[j] = new_style | STYLE_OVERLAP
-                        else:
-                            style[j] = new_style
-            self.StartStyling(line_start, 0xff)
-            #print 'StartStyling(%s,...)' % line_start
-            style_str = ''.join(map(chr,style))
-            self.SetStyleBytes(len(style), style_str)
-            #print 'SetStyleBytes(...,%s)' % style
+                            #if style[j] != STYLE_DEFAULT:
+                            #    style[j] = new_style | STYLE_OVERLAP
+                            #else:
+                            #    style[j] = new_style
+                self.StartStyling(line_start, 0xff)
+                #print 'StartStyling(%s,...)' % line_start
+                style_str = ''.join(map(chr,style))
+                self.SetStyleBytes(len(style), style_str)
+                #print 'SetStyleBytes(...,%s)' % style
             current += 1
     def OnUpdate(self, evt):
         print 'MyRegexMatchCtrl.OnUpdate'
@@ -371,7 +379,13 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
         self._CallHandlers(self)
 
 def MyReplaceTextCtrl(MyStyledTextCtrl):
-    pass
+    def __init__(self, *args, **kw):
+        style = 0
+        if kw.has_key('style'):
+            style = kw['style']
+        kw['style'] = style | wx.TE_READONLY
+        MyStyledTextCtrl.__init__(*args, **kw)
+    
 
 class MyReChoice(wx.Choice):
     def SetTextCtrl(self, ctrl):
@@ -406,16 +420,10 @@ class MyFrame(wx.Frame):
         self.Bind(wx.EVT_TEXT, self.pattern_match_pattern.OnUpdate, self.pattern_match_pattern)
         self.Bind(wx.EVT_CHAR, self.pattern_match_pattern.OnUpdate, self.pattern_match_pattern)
 
-        self.Bind(stc.EVT_STC_STYLENEEDED, self.search_text_box.OnUpdate, self.pattern_match_text)
+        self.Bind(stc.EVT_STC_STYLENEEDED, self.search_text_box.OnUpdate, self.search_text_box)
         self.Bind(wx.EVT_TEXT, self.search_pattern.OnUpdate, self.search_pattern)
         self.Bind(wx.EVT_CHAR, self.search_pattern.OnUpdate, self.search_pattern)
-        for i in range(len(group_color_names)):
-            self.pattern_match_text.StyleSetForeground(i+1,group_color_names[i])
-            self.pattern_match_text.StyleSetBackground(i+1,'BLACK')
-        #for k in sorted(style_definitions.keys()):
-            #self.pattern_match_text.StyleSetSpec(k, style_definitions[k])
-            #print "k: 0x%02x, style: %s" % (k,style_definitions[k])
-        #self.__test_styles(self.pattern_match_text)
+
 
     def __set_properties(self):
         # begin wxGlade: MyFrame.__set_properties
