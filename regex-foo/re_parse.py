@@ -191,9 +191,9 @@ class ReplacePatternParser(BaseREParser):
     def __init__(self, handler):
         BaseREParser.__init__(self,handler)
         backref = BACKREF.copy().setParseAction( self.handler_object.handleBackreference )
-        self.py_string_escape.setParseAction( self.handler_object.handleEscape )
+        self.py_string_escape.setParseAction( self.handler_object.handleStringEscape )
         valid_char = RE(r'[^\\]')
         invalid_escape = RE(r'\\.').setParseAction( self.handler_object.handleInvalid )
-        self.parser = pp.oneOrMore( backref | self.py_string_escape | invalid_escape | valid_char ) # | is like or (^), but takes the first possible match
+        self.parser = pp.OneOrMore( backref | self.py_string_escape | invalid_escape | valid_char ) # | is like or (^), but takes the first possible match
 
 
