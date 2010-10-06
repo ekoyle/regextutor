@@ -105,8 +105,8 @@ INVALID_STYLE = None
 
 FONT_SIZE=14
 
-max_level = 1
-#max_level = 20
+#max_level = 1
+max_level = 20
 
 def log(level, fcn, s, sub=None,):
     if level <= max_level:
@@ -341,43 +341,43 @@ class MyStyledTextCtrl(wx.stc.StyledTextCtrl):
             self.OnUpdate(caller='MyStyledTextCtrl.SetRegex')
 
 class MyRegexMatchCtrl(MyStyledTextCtrl):
+    def __init__(self, *args, **kw):
+        MyStyledTextCtrl.__init__(self, *args, **kw)
     def get_style(self, group_num):
         return (group_num % 32) + 1
-    def DoRegexStyle(self, evt):
+    def DoRegexStyle(self, evt, **kw):
         if not hasattr(self,'_regex'):
             log(1, 'MyRegexMatchCtrl.DoRegexStyle', '_regex undefined')
             return
-        current = self.GetFirstVisibleLine()
-        while(self.GetLineVisible(current)):
-            line_start = self.PositionFromLine(current)
-            if line_start < 0:
-                break
-            line = self.GetLine(current)
 
-            # FIXME: can we just treat this as a single line?
-            style = [STYLE_DEFAULT] * len(line)
-            for match in self._regex.finditer(line):
-                if match:
-                    num_groups = len(match.groups())
-                    for i in range(num_groups+1):
-                        for j in range(match.start(i), match.end(i)):
-                            new_style = self.get_style(i)
-                            style[j] = new_style | STYLE_OVERLAP
-                            #if style[j] != STYLE_DEFAULT:
-                            #    style[j] = new_style | STYLE_OVERLAP
-                            #else:
-                            #    style[j] = new_style
-                self.StartStyling(line_start, 0xff)
-                style_str = ''.join(map(chr,style))
-                self.SetStyleBytes(len(style), style_str)
-            current += 1
+        line = self._text
+        line_start = 0
+
+        # FIXME: can we just treat this as a single line?
+        style = [STYLE_DEFAULT] * len(line)
+        for match in self._regex.finditer(line):
+            if match:
+                num_groups = len(match.groups())
+                for i in range(num_groups+1):
+                    for j in range(match.start(i), match.end(i)):
+                        new_style = self.get_style(i)
+                        style[j] = new_style | STYLE_OVERLAP
+                        #if style[j] != STYLE_DEFAULT:
+                        #    style[j] = new_style | STYLE_OVERLAP
+                        #else:
+                        #    style[j] = new_style
+            self.StartStyling(line_start, 0xff)
+            style_str = ''.join(map(chr,style))
+            self.SetStyleBytes(len(style), style_str)
     def OnUpdate(self, evt=None, **kw):
         log(5, "MyRegexMatchCtrl.OnUpdate", "(%s, %s)", (evt, kw) )
         new_text = self.GetText()
+        if new_text is None:
+            new_text = ''
         if new_text != self._text:
             self._text = new_text
-            self.DoRegexStyle(None)
             self._CallHandlers(text=self._text)
+        self.DoRegexStyle(None)
 
 class MyReplaceTextCtrl(MyStyledTextCtrl):
     def __init__(self, *args, **kw):
