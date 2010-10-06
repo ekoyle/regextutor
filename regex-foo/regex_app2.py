@@ -186,6 +186,14 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
         if self._re_style == 'Extended':
             return regex
         # FIXME: replace \( with (, ( with \(, but not inside []...
+    def _CallHandlers(self, *args, **kw):
+        for callback in self.__callbacks:
+            try:
+                callback(*args, **kw)
+            except Exception,e:
+                print e
+                raise
+
     def OnUpdate(self, evt):
         print 'MyPatternStyledTextCtrl.OnUpdate'
         regex = self.GetValue()
@@ -199,12 +207,7 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
         # pretty colors, please
         # update text box
         #self.__text_box.SetRegex(regex)
-        for callback in self.__callbacks:
-            try:
-                callback(regex)
-            except Exception,e:
-                print e
-                raise
+        self._CallHandlers(regex)
 
     def startParsing(self,s):
         self._clear_style()
@@ -277,7 +280,6 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
         use_style = curr_style.Merge(curr_style, style)
         #print_style(use_style)
         self._style.set_style(start, end, use_style)
-        
 
     def colorDupl(self, start, startlen, end, endlen):
         self.setTextStyle( start, end + endlen, DUPL_STYLE )
@@ -286,10 +288,6 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
     def colorGroup(self, start, startlen, end, endlen):
         group_num = self.__curr_group
         self.setTextStyle( start, end + endlen, group_styles[group_num] )
-        #print 'colorGroup', start, end, group_num
-        #print dir(group_styles[group_num])
-        #print group_styles[group_num].GetBackgroundColour()
-        #print group_styles[group_num].GetTextColour()
 
     def colorBracketList(self, start, startlen, end, endlen):
         self.setTextStyle( start, end + endlen, BRACKET_STYLE )
@@ -312,6 +310,16 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
         print 'colorBackref: %s' % group_num
         self.setTextStyle( start, end + endlen, group_styles[group_num] )
     
+class MyReplacePatternStyledTextCtrl(MyPatternStyledTextCtrl):
+    def __init__(self, *args, **kw):
+        MyPatternStyledTextCtrl.__init__(self, *args, **kw)
+        self._pattern_parser = None
+
+    def OnUpdate(self, evt):
+        repl = self.GetValue()
+        self._pattern_parser.parse(repl)
+        self._CallHandlers(repl)        
+
 class MyStyledTextCtrl(wx.stc.StyledTextCtrl):
     def __init__(self, *args, **kw):
         stc.StyledTextCtrl.__init__(self, *args, **kw)
@@ -330,7 +338,6 @@ class MyStyledTextCtrl(wx.stc.StyledTextCtrl):
     def _CallHandlers(self, *args, **kw):
         for handler in self._callbacks:
             handler( *args, **kw )
-
 
 class MyRegexMatchCtrl(MyStyledTextCtrl):
     def SetRegex(self, regex):
@@ -375,17 +382,25 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
             current += 1
     def OnUpdate(self, evt):
         print 'MyRegexMatchCtrl.OnUpdate'
-        self.DoRegexStyle(self)
-        self._CallHandlers(self)
+        self.DoRegexStyle(None)
+        self._CallHandlers(self._regex)
 
-def MyReplaceTextCtrl(MyStyledTextCtrl):
+class MyReplaceTextCtrl(MyStyledTextCtrl):
     def __init__(self, *args, **kw):
-        style = 0
-        if kw.has_key('style'):
-            style = kw['style']
-        kw['style'] = style | wx.TE_READONLY
-        MyStyledTextCtrl.__init__(*args, **kw)
-    
+        MyStyledTextCtrl.__init__(self,*args, **kw)
+        self.SetReadOnly(True)
+        self._replace=''
+    def OnUpdate(self, evt):
+        pass
+    def SetRegex(self, regex):
+        self._regex = regex
+        self.OnUpdate(None)
+    def SetReplace(self, replace):
+        self._replace = replace
+        self.OnUpdate(None)
+    def SetOriginal(self, text):
+        self._text = text
+        self.OnUpdate(None)
 
 class MyReChoice(wx.Choice):
     def SetTextCtrl(self, ctrl):
@@ -410,8 +425,8 @@ class MyFrame(wx.Frame):
 
         self.search_pattern = MyPatternStyledTextCtrl(self.search_replace_pane, -1, "")
         self.search_text_box = MyRegexMatchCtrl(self.search_replace_pane, -1)
-        self.replace_pattern = MyPatternStyledTextCtrl(self.search_replace_pane, -1, "")
-        self.replace_text_box = MyRegexMatchCtrl(self.search_replace_pane, -1)
+        self.replace_pattern = MyReplacePatternStyledTextCtrl(self.search_replace_pane, -1, "")
+        self.replace_text_box = MyReplaceTextCtrl(self.search_replace_pane, -1)
 
         self.__set_properties()
         self.__do_layout()
@@ -424,15 +439,20 @@ class MyFrame(wx.Frame):
         self.Bind(wx.EVT_TEXT, self.search_pattern.OnUpdate, self.search_pattern)
         self.Bind(wx.EVT_CHAR, self.search_pattern.OnUpdate, self.search_pattern)
 
+        self.Bind(stc.EVT_STC_STYLENEEDED, self.replace_text_box.OnUpdate, self.replace_text_box)
+        self.Bind(wx.EVT_TEXT, self.replace_pattern.OnUpdate, self.replace_pattern)
+        self.Bind(wx.EVT_CHAR, self.replace_pattern.OnUpdate, self.replace_pattern)
+
 
     def __set_properties(self):
         # begin wxGlade: MyFrame.__set_properties
         self.SetTitle("Regular Expressions")
         self.regex_type_choice.SetSelection(0)
         # end wxGlade
-        #self.pattern_match_pattern.SetTextBox(self.pattern_match_text)
         self.pattern_match_pattern.AddHandler(self.pattern_match_text.SetRegex)
         self.search_pattern.AddHandler(self.search_text_box.SetRegex)
+        self.search_pattern.AddHandler(self.replace_text_box.SetRegex)
+        self.replace_pattern.AddHandler(self.replace_text_box.SetReplace)
 
     def __do_layout(self):
         #main_sizer = wx.BoxSizer(wx.VERTICAL)
