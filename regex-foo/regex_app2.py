@@ -347,6 +347,7 @@ class MyStyledTextCtrl(wx.stc.StyledTextCtrl):
 class MyRegexMatchCtrl(MyStyledTextCtrl):
     def __init__(self, *args, **kw):
         MyStyledTextCtrl.__init__(self, *args, **kw)
+        self.SetCaretForeground('WHITE')
     def get_style(self, group_num):
         return (group_num % 32) + 1
     def DoRegexStyle(self, evt, **kw):
@@ -386,6 +387,7 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
 class MyReplaceTextCtrl(MyStyledTextCtrl):
     def __init__(self, *args, **kw):
         MyStyledTextCtrl.__init__(self,*args, **kw)
+        self.SetCaretForeground('BLACK')
         self.SetReadOnly(True)
         self._replace=''
         self._text=''
