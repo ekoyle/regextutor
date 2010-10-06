@@ -101,6 +101,7 @@ BRACKET_STYLE = None
 STR_ESC_STYLE = None
 RE_ESC_STYLE = None
 RANGE_STYLE = None
+INVALID_STYLE = None
 
 FONT_SIZE=14
 
@@ -127,17 +128,14 @@ class MyTextStyle(object):
             self.__data.insert( d_match, (start, stop, style) )
         else:
             self.__data.append( (start, stop, style) )
-
     def get_style(self, pos):
         for i in range(len(self.__data)):
              d_start, d_stop, d_style = self.__data[i]
              if pos >= d_start and pos < d_stop:
                  return d_style
         return default_style
-
     def get_style_data(self):
         return sorted(self.__data[:])
-
 
 def style_init():
     # wx is goofy about fonts... we have to create an App first...
@@ -159,6 +157,8 @@ def style_init():
     RE_ESC_STYLE = wx.TextAttr( 'LIGHT BLUE', wx.NullColour )
     global RANGE_STYLE
     RANGE_STYLE = wx.TextAttr(wx.NullColour, wx.NullColour, default_font)
+    global INVALID_STYLE
+    INVALID_STYLE = wx.TextAttr('LIGHT BLUE', 'DARK RED', default_font)
 
 def print_style(style):
     print style.GetFont(), style.GetTextColour(), style.GetBackgroundColour()
@@ -193,13 +193,12 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
             except Exception,e:
                 print e
                 raise
-
     def OnUpdate(self, evt):
         print 'MyPatternStyledTextCtrl.OnUpdate'
-        regex = self.GetValue()
+        self.regex_text = self.GetValue()
         # do some color foo
-        self._re_parser.parse(regex)
-        regex = self.ConvertRegex(regex)
+        self._re_parser.parse(self.regex_text)
+        regex = self.ConvertRegex(self.regex_text)
         #print regex
         if '\n' in regex:
             # oops
@@ -208,7 +207,6 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
         # update text box
         #self.__text_box.SetRegex(regex)
         self._CallHandlers(regex)
-
     def startParsing(self,s):
         self._clear_style()
         self.parse_groups = {}
@@ -245,7 +243,8 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
         self.handleType(s,loc,toks,self.colorRange)
     def handleBackreference(self, s, loc, toks):
         self.handleType(s,loc,toks,self.colorBackreference)
-
+    def handleInvalid(self, s, loc, toks):
+        self.handleType(s, loc, toks, self.colorInvalid)
     def setTextStyle_direct(self, start, end, style):
         ins_point = self.GetInsertionPoint()
         curr_style = wx.TextAttr()
@@ -257,19 +256,18 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
         self.SetInsertionPoint(0)
         if not self.SetStyle( start, end, curr_style.Merge(style, curr_style) ): print 'Failed to set color.'
         self.SetInsertionPoint(ins_point)
-
     def _clear_style(self):
         self._style = MyTextStyle()
-
     def _apply_style(self):
         ins_point = self.GetInsertionPoint()
+        self.SetInsertionPoint(0)
+        self.SetStyle(0,len(self.regex_text), default_style)
         for start, end, style in self._style.get_style_data():
             #print start, end,
             #print_style( style )
             self.SetInsertionPoint(0)
             if not self.SetStyle( start, end, style ): print 'Failed to set style: (%s,%s,%s)' % (start,end,style)
         self.SetInsertionPoint(ins_point)
-
     def setTextStyle(self, start, end, style):
         curr_style = self._style.get_style(start)
         #print 'style:',
@@ -280,41 +278,36 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
         use_style = curr_style.Merge(curr_style, style)
         #print_style(use_style)
         self._style.set_style(start, end, use_style)
-
     def colorDupl(self, start, startlen, end, endlen):
         self.setTextStyle( start, end + endlen, DUPL_STYLE )
         #print 'colorDupl'
-
     def colorGroup(self, start, startlen, end, endlen):
         group_num = self.__curr_group
         self.setTextStyle( start, end + endlen, group_styles[group_num] )
-
     def colorBracketList(self, start, startlen, end, endlen):
         self.setTextStyle( start, end + endlen, BRACKET_STYLE )
         #print 'colorBracketList'
-    
     def colorReEscape(self, start, startlen, end, endlen):
         self.setTextStyle( start, end + endlen, RE_ESC_STYLE )
         #print 'colorReEscape'
-    
     def colorStringEscape(self, start, startlen, end, endlen):
         self.setTextStyle( start, end + endlen, STR_ESC_STYLE )
         #print 'colorStringEscape'
-    
     def colorRange(self, start, startlen, end, endlen):
         self.setTextStyle( start, end + endlen, RANGE_STYLE )
         #print 'colorRange'
-
     def colorBackreference(self, start, startlen, end, endlen):
         group_num = int(self.parse_string[start+1:end+endlen])
         print 'colorBackref: %s' % group_num
         self.setTextStyle( start, end + endlen, group_styles[group_num] )
-    
+    def colorInvalid(self, start, startlen, end, endlen):
+        self.setTextStyle( start, end+endlen, INVALID_STYLE )
+
+
 class MyReplacePatternStyledTextCtrl(MyPatternStyledTextCtrl):
     def __init__(self, *args, **kw):
         MyPatternStyledTextCtrl.__init__(self, *args, **kw)
         self._pattern_parser = None
-
     def OnUpdate(self, evt):
         repl = self.GetValue()
         self._pattern_parser.parse(repl)
@@ -331,10 +324,8 @@ class MyStyledTextCtrl(wx.stc.StyledTextCtrl):
             self.StyleSetForeground(i+1,group_color_names[i])
             self.StyleSetBackground(i+1,'BLACK')
         print self
-
     def AddHandler(self, handler):
         self._callbacks.append(handler)
-
     def _CallHandlers(self, *args, **kw):
         for handler in self._callbacks:
             handler( *args, **kw )
@@ -442,8 +433,6 @@ class MyFrame(wx.Frame):
         self.Bind(stc.EVT_STC_STYLENEEDED, self.replace_text_box.OnUpdate, self.replace_text_box)
         self.Bind(wx.EVT_TEXT, self.replace_pattern.OnUpdate, self.replace_pattern)
         self.Bind(wx.EVT_CHAR, self.replace_pattern.OnUpdate, self.replace_pattern)
-
-
     def __set_properties(self):
         # begin wxGlade: MyFrame.__set_properties
         self.SetTitle("Regular Expressions")
@@ -453,7 +442,6 @@ class MyFrame(wx.Frame):
         self.search_pattern.AddHandler(self.search_text_box.SetRegex)
         self.search_pattern.AddHandler(self.replace_text_box.SetRegex)
         self.replace_pattern.AddHandler(self.replace_text_box.SetReplace)
-
     def __do_layout(self):
         #main_sizer = wx.BoxSizer(wx.VERTICAL)
         main_sizer = wx.BoxSizer()
@@ -491,7 +479,6 @@ class MyFrame(wx.Frame):
         self.SetSizer(main_sizer)
         main_sizer.Fit(self)
         self.Layout()
-
     def __test_styles(self, ctrl):
         ctrl.ClearAll()
         lines = []
@@ -506,7 +493,6 @@ class MyFrame(wx.Frame):
             #lines.append('\x00')
         ctrl.AddStyledText(''.join(lines))
             
-
 if __name__ == "__main__":
     app = wx.PySimpleApp(0)
     wx.InitAllImageHandlers()
@@ -514,3 +500,4 @@ if __name__ == "__main__":
     app.SetTopWindow(main_frame)
     main_frame.Show()
     app.MainLoop()
+

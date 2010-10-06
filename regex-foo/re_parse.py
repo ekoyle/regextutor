@@ -94,7 +94,6 @@ class BaseREParser(object):
         nonmatching_list = CFLEX + bracket_list
         bracket_expression = LBRACK + ( matching_list ^ nonmatching_list ) + RBRACK
         self.bracket_expression = pp.Group(bracket_expression.setParseAction(self.handler_object.handleBracketList))
-
     def parse(self, s):
         self.handler_object.startParsing(s)
         self.parser.parseString(s)
@@ -130,16 +129,24 @@ class ExtendedREParser(BaseREParser):
         ERE_expression = pp.Or([ one_character_ERE + pp.Optional(ERE_dupl_symbol), L_ANCHOR , R_ANCHOR ,
                     pp.Group( (ERE_LPAREN + extended_reg_exp + ERE_RPAREN
                         ).setParseAction(self.handler_object.handleGroup)
-                        ) + pp.Optional(ERE_dupl_symbol) , ])
+                        ) + pp.Optional(ERE_dupl_symbol) , ]
+        )
+
+        #bad_lparen = ERE_LPAREN.copy().setParseAction(self.handler_object.handleInvalid)
+        #bad_rparen = ERE_RPAREN.copy().setParseAction(self.handler_object.handleInvalid)
 
         # Yet again...
         #ERE_branch = pp.Forward()
         #ERE_branch << ( ERE_expression ^ ERE_branch + ERE_expression )
-        ERE_branch = pp.OneOrMore(ERE_expression)
+        ERE_branch = pp.OneOrMore( ERE_expression )
 
         #extended_reg_exp << pp.Or([ ERE_branch , extended_reg_exp + ALTERATION + ERE_branch ])
         extended_reg_exp << ( ERE_branch + pp.Optional( pp.OneOrMore( ALTERATION + ERE_branch ) ) )
-        self.parser = pp.LineStart() + extended_reg_exp + pp.LineEnd()
+
+        #extended_reg_exp_invalid = pp.OneOrMore( (bad_lparen + extended_reg_exp) ^ (extended_reg_exp + bad_rparen) )
+        invalid = RE('.+').setParseAction(self.handler_object.handleInvalid)
+
+        self.parser = pp.LineStart() + extended_reg_exp + pp.Optional(invalid) + pp.LineEnd()
 
 def toklen(toks):
     if type(toks) in ( types.StringType, types.UnicodeType):
@@ -172,7 +179,6 @@ class TestHandlerObject(object):
         print loc
         print toks
         self.formatting.insert(0, (t_name, loc, toklen(toks[0]), loc+toklen(toks) - toklen(toks[-1]), toklen(toks[-1])) )
-
     def handleDupl(self, s, loc, toks):
         self.handleType(s, loc, toks, 'dupl')
     def handleGroup(self, s, loc, toks):
@@ -181,5 +187,13 @@ class TestHandlerObject(object):
     def handleBracketList(self, s, loc, toks):
         self.handleType(s, loc, toks, 'bracket')
 
+class ReplacePatternParser(BaseREParser):
+    def __init__(self, handler):
+        BaseREParser.__init__(self,handler)
+        backref = BACKREF.copy().setParseAction( self.handler_object.handleBackreference )
+        self.py_string_escape.setParseAction( self.handler_object.handleEscape )
+        valid_char = RE(r'[^\\]')
+        invalid_escape = RE(r'\\.').setParseAction( self.handler_object.handleInvalid )
+        self.parser = pp.oneOrMore( backref | self.py_string_escape | invalid_escape | valid_char ) # | is like or (^), but takes the first possible match
 
 
