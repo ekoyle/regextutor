@@ -5,6 +5,7 @@
 import wx
 import re
 import re_parse
+import os
 
 # begin wxGlade: extracode
 from wx import stc
@@ -213,7 +214,10 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
             return # nothing changed
         self._text = text
         # do some color foo
-        self._re_parser.parse(self._text)
+        try:
+            self._re_parser.parse(self._text)
+        except:
+            pass
         regex = self.ConvertRegex(self._text)
         if '\n' in regex:
             # oops
@@ -346,29 +350,28 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
     def get_style(self, group_num):
         return (group_num % 32) + 1
     def DoRegexStyle(self, evt, **kw):
-        if not hasattr(self,'_regex'):
+        if not (hasattr(self,'_regex') or hasattr(self, '_text')):
             log(1, 'MyRegexMatchCtrl.DoRegexStyle', '_regex undefined')
             return
 
         line = self._text
         line_start = 0
 
-        # FIXME: can we just treat this as a single line?
+        #self.StyleClearAll()
         style = [STYLE_DEFAULT] * len(line)
         for match in self._regex.finditer(line):
-            if match:
-                num_groups = len(match.groups())
-                for i in range(num_groups+1):
-                    for j in range(match.start(i), match.end(i)):
-                        new_style = self.get_style(i)
-                        style[j] = new_style | STYLE_OVERLAP
-                        #if style[j] != STYLE_DEFAULT:
-                        #    style[j] = new_style | STYLE_OVERLAP
-                        #else:
-                        #    style[j] = new_style
-            self.StartStyling(line_start, 0xff)
-            style_str = ''.join(map(chr,style))
-            self.SetStyleBytes(len(style), style_str)
+            num_groups = len(match.groups())
+            for i in range(num_groups+1):
+                for j in range(match.start(i), match.end(i)):
+                    new_style = self.get_style(i)
+                    style[j] = new_style | STYLE_OVERLAP
+                    #if style[j] != STYLE_DEFAULT:
+                    #    style[j] = new_style | STYLE_OVERLAP
+                    #else:
+                    #    style[j] = new_style
+        self.StartStyling(line_start, 0xff)
+        style_str = ''.join(map(chr,style))
+        self.SetStyleBytes(len(style), style_str)
     def OnUpdate(self, evt=None, **kw):
         log(5, "MyRegexMatchCtrl.OnUpdate", "(%s, %s)", (evt, kw) )
         new_text = self.GetText()
@@ -378,6 +381,7 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
             self._text = new_text
             self._CallHandlers(text=self._text)
         self.DoRegexStyle(None)
+
 
 class MyReplaceTextCtrl(MyStyledTextCtrl):
     def __init__(self, *args, **kw):
@@ -436,15 +440,24 @@ class MyFrame(wx.Frame):
         self.notebook_1 = wx.Notebook(self)
         self.pattern_matching_pane = wx.Panel(self.notebook_1, -1)
         self.search_replace_pane = wx.Panel(self.notebook_1, -1)
+        #self.pm_problems_pane = wx.Panel(self.notebook_1, -1)
+        #self.sr_problems_pane = wx.Panel(self.notebook_1, -1)
 
+        self.pm_file_dlg = wx.FileDialog(self, "Choose File", )
+        self.pattern_match_pattern_label = wx.StaticText(self.pattern_matching_pane, -1, 'Regular expression')
         self.pattern_match_pattern = MyPatternStyledTextCtrl(self.pattern_matching_pane, -1)
-        self.load_file_button = wx.Button(self.pattern_matching_pane, -1, "load text from file")
-        self.regex_type_choice = MyReChoice(self.pattern_matching_pane, -1, choices=["POSIX Extended", "POSIX Basic", ])
+        self.pm_load_file_button = wx.Button(self.pattern_matching_pane, -1, "load text from file")
+        #self.regex_type_choice = MyReChoice(self.pattern_matching_pane, -1, choices=["POSIX Extended", "POSIX Basic", ])
+        self.pattern_match_text_label = wx.StaticText(self.pattern_matching_pane, -1, 'Matched text')
         self.pattern_match_text = MyRegexMatchCtrl(self.pattern_matching_pane, -1)
 
+        self.search_pattern_label = wx.StaticText(self.search_replace_pane, -1, 'Search pattern')
         self.search_pattern = MyPatternStyledTextCtrl(self.search_replace_pane, -1, "")
+        self.search_text_box_label = wx.StaticText(self.search_replace_pane, -1, 'Search pattern matched text')
         self.search_text_box = MyRegexMatchCtrl(self.search_replace_pane, -1)
+        self.replace_pattern_label = wx.StaticText(self.search_replace_pane, -1, 'Replacement pattern')
         self.replace_pattern = MyReplacePatternStyledTextCtrl(self.search_replace_pane, -1, "")
+        self.replace_text_box_label = wx.StaticText(self.search_replace_pane, -1, 'Replaced text')
         self.replace_text_box = MyReplaceTextCtrl(self.search_replace_pane, -1)
 
         self.__set_properties()
@@ -458,40 +471,53 @@ class MyFrame(wx.Frame):
         self.Bind(wx.EVT_TEXT, self.search_pattern.OnUpdate, self.search_pattern)
         self.Bind(wx.EVT_CHAR, self.search_pattern.OnUpdate, self.search_pattern)
 
+        self.Bind(wx.EVT_BUTTON, self.PMFileOpen, self.pm_load_file_button)
+
         #self.Bind(stc.EVT_STC_STYLENEEDED, self.replace_text_box.OnUpdate, self.replace_text_box) # handled directly, this causes quite a loop...
         self.Bind(wx.EVT_TEXT, self.replace_pattern.OnUpdate, self.replace_pattern)
         self.Bind(wx.EVT_CHAR, self.replace_pattern.OnUpdate, self.replace_pattern)
     def __set_properties(self):
         # begin wxGlade: MyFrame.__set_properties
         self.SetTitle("Regular Expressions")
-        self.regex_type_choice.SetSelection(0)
+        #self.regex_type_choice.SetSelection(0)
         # end wxGlade
         self.pattern_match_pattern.AddHandler(self.pattern_match_text.SetRegex)
         self.search_pattern.AddHandler(self.search_text_box.SetRegex)
         self.search_pattern.AddHandler(self.replace_text_box.SetRegex)
         self.replace_pattern.AddHandler(self.replace_text_box.SetReplace)
         self.search_text_box.AddHandler(self.replace_text_box.SetOriginal)
+    def PMFileOpen(self, evt):
+        if self.pm_file_dlg.ShowModal() == wx.ID_OK:
+            fname = self.pm_file_dlg.GetFilename()
+            fdir = self.pm_file_dlg.GetDirectory()
+            self.pattern_match_text.LoadFile(os.path.join(fdir, fname) )
     def __do_layout(self):
         #main_sizer = wx.BoxSizer(wx.VERTICAL)
         main_sizer = wx.BoxSizer()
         
         pattern_options_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        pattern_options_sizer.Add(self.load_file_button, 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        pattern_options_sizer.Add(self.regex_type_choice, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALIGN_CENTER_VERTICAL, 0)
+        pattern_options_sizer.Add(self.pm_load_file_button, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        #pattern_options_sizer.Add(self.regex_type_choice, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALIGN_CENTER_VERTICAL, 0)
 
         main_pattern_sizer = wx.BoxSizer(wx.VERTICAL)
+        main_pattern_sizer.Add(self.pattern_match_pattern_label, 0, 0, 0)
         main_pattern_sizer.Add(self.pattern_match_pattern, 0, wx.EXPAND, 0)
         main_pattern_sizer.Add(pattern_options_sizer, 0, wx.EXPAND, 0)
+        main_pattern_sizer.Add(self.pattern_match_text_label, 0, 0, 0)
         main_pattern_sizer.Add(self.pattern_match_text, 100, wx.EXPAND, 0)
         self.pattern_matching_pane.SetSizer(main_pattern_sizer)
 
         
         search_sizer = wx.BoxSizer(wx.VERTICAL)
+        search_sizer.Add(self.search_pattern_label, 0, 0, 0)
         search_sizer.Add(self.search_pattern, 0, wx.EXPAND, 0)
+        search_sizer.Add(self.search_text_box_label, 0, 0, 0)
         search_sizer.Add(self.search_text_box, 3, wx.EXPAND, 0)
 
         replace_sizer = wx.BoxSizer(wx.VERTICAL)
+        replace_sizer.Add(self.replace_pattern_label, 0, 0, 0)
         replace_sizer.Add(self.replace_pattern, 0, wx.EXPAND, 0)
+        replace_sizer.Add(self.replace_text_box_label, 0, 0, 0)
         replace_sizer.Add(self.replace_text_box, 3, wx.EXPAND, 0)
 
         main_sr_sizer = wx.BoxSizer(wx.HORIZONTAL)
