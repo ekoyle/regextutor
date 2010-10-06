@@ -106,13 +106,14 @@ class ExtendedREParser(BaseREParser):
         BaseREParser.__init__( self, handler_object )
         #self.escape_ere = SPEC_CHAR_ERE.copy().setParseAction(self.handler_object.handleReEscape)
         self.py_ere = SPEC_CHAR_PYTHON_ERE.copy().setParseAction(self.handler_object.handleReEscape)
+        self.backref = BACKREF.copy().setParseAction(self.handler_object.handleBackreference)
         ERE_dupl_symbol = pp.Or([ KLEENE_STAR , PLUS , QMARK , ERE_LBRACE + DUP_COUNT + ERE_RBRACE ,
                     ERE_LBRACE + DUP_COUNT + COMMA + ERE_RBRACE ,
                     ERE_LBRACE + DUP_COUNT + COMMA + DUP_COUNT + ERE_RBRACE ]
                     ).setParseAction(self.handler_object.handleDupl)
 
         one_character_ERE = pp.Or([ORD_CHAR_ERE , QUOTED_CHAR_ERE , DOT,
-                 self.py_ere, self.py_string_escape, # these weren't in my reference grammar...
+                 self.py_ere, self.py_string_escape, self.backref, # these weren't in my reference grammar...
                  self.bracket_expression])
 
         extended_reg_exp = pp.Forward()

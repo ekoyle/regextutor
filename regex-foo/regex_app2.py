@@ -174,8 +174,9 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
         self._re_style='Extended'
         if self._re_style == 'Extended':
             self._re_parser = re_parse.ExtendedREParser(self)
-    def SetTextBox(self, box):
-        self.__text_box = box
+        self.__callbacks = []
+    def AddHandler(self, handler):
+        self.__callbacks.append(handler)
     def SetReStyle(self, style):
         self._re_style = style
         self.OnUpdate(None)
@@ -184,18 +185,24 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
             return regex
         # FIXME: replace \( with (, ( with \(, but not inside []...
     def OnUpdate(self, evt):
-        print 'OnUpdate'
+        print 'MyPatternStyledTextCtrl.OnUpdate'
         regex = self.GetValue()
         # do some color foo
         self._re_parser.parse(regex)
         regex = self.ConvertRegex(regex)
-        print regex
+        #print regex
         if '\n' in regex:
             # oops
             pass
         # pretty colors, please
         # update text box
-        self.__text_box.SetRegex(regex)
+        #self.__text_box.SetRegex(regex)
+        for callback in self.__callbacks:
+            try:
+                callback(regex)
+            except Exception,e:
+                print e
+                raise
 
     def startParsing(self,s):
         self._clear_style()
@@ -231,6 +238,8 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
         self.handleType(s,loc,toks,self.colorStringEscape)
     def handleRange(self, s, loc, toks):
         self.handleType(s,loc,toks,self.colorRange)
+    def handleBackreference(self, s, loc, toks):
+        self.handleType(s,loc,toks,self.colorBackreference)
 
     def setTextStyle_direct(self, start, end, style):
         ins_point = self.GetInsertionPoint()
@@ -250,52 +259,120 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
     def _apply_style(self):
         ins_point = self.GetInsertionPoint()
         for start, end, style in self._style.get_style_data():
-            print start, end,
-            print_style( style )
+            #print start, end,
+            #print_style( style )
             self.SetInsertionPoint(0)
             if not self.SetStyle( start, end, style ): print 'Failed to set style: (%s,%s,%s)' % (start,end,style)
         self.SetInsertionPoint(ins_point)
 
     def setTextStyle(self, start, end, style):
         curr_style = self._style.get_style(start)
-        print 'style:',
-        print_style(style)
-        print 'curr_style:',
-        print_style(curr_style)
-        print 'use_style:',
+        #print 'style:',
+        #print_style(style)
+        #print 'curr_style:',
+        #print_style(curr_style)
+        #print 'use_style:',
         use_style = curr_style.Merge(curr_style, style)
-        print_style(use_style)
+        #print_style(use_style)
         self._style.set_style(start, end, use_style)
         
 
     def colorDupl(self, start, startlen, end, endlen):
         self.setTextStyle( start, end + endlen, DUPL_STYLE )
-        print 'colorDupl'
+        #print 'colorDupl'
 
     def colorGroup(self, start, startlen, end, endlen):
         group_num = self.__curr_group
         self.setTextStyle( start, end + endlen, group_styles[group_num] )
-        print 'colorGroup', start, end, group_num
+        #print 'colorGroup', start, end, group_num
         #print dir(group_styles[group_num])
         #print group_styles[group_num].GetBackgroundColour()
         #print group_styles[group_num].GetTextColour()
 
     def colorBracketList(self, start, startlen, end, endlen):
         self.setTextStyle( start, end + endlen, BRACKET_STYLE )
-        print 'colorBracketList'
+        #print 'colorBracketList'
     
     def colorReEscape(self, start, startlen, end, endlen):
         self.setTextStyle( start, end + endlen, RE_ESC_STYLE )
-        print 'colorReEscape'
+        #print 'colorReEscape'
     
     def colorStringEscape(self, start, startlen, end, endlen):
         self.setTextStyle( start, end + endlen, STR_ESC_STYLE )
-        print 'colorStringEscape'
+        #print 'colorStringEscape'
     
     def colorRange(self, start, startlen, end, endlen):
         self.setTextStyle( start, end + endlen, RANGE_STYLE )
-        print 'colorRange'
+        #print 'colorRange'
+
+    def colorBackreference(self, start, startlen, end, endlen):
+        group_num = int(self.parse_string[start+1:end+endlen])
+        print 'colorBackref: %s' % group_num
+        self.setTextStyle( start, end + endlen, group_styles[group_num] )
     
+class MyStyledTextCtrl(wx.stc.StyledTextCtrl):
+    def __init__(self, *args, **kw):
+        stc.StyledTextCtrl.__init__(self, *args, **kw)
+        self.StyleSetSpec( 0x20, 'fore:#999999,back:#0000000,face:Courier,size:14') # "default"
+        self.StyleSetSpec( 0x00, 'fore:#999999,back:#0000000,face:Courier,size:14')
+        self.SetLexer(stc.STC_LEX_CONTAINER)
+        self._callbacks = []
+
+    def AddHandler(self, handler):
+        self._callbacks.append(handler)
+
+    def _CallHandlers(self, *args, **kw):
+        for handler in self._callbacks:
+            handler( *args, **kw )
+
+
+class MyRegexMatchCtrl(MyStyledTextCtrl):
+    def SetRegex(self, regex):
+        print self
+        self._regex = re.compile(regex)
+        print "SetRegex(%s)" % regex, self._regex
+        #print self
+        self.OnUpdate(None)
+    def get_style(self, group_num):
+        return (group_num % 32) + 1
+    def DoRegexStyle(self, evt):
+        if not hasattr(self,'_regex'):
+            print self
+            print '_regex undefined'
+            return
+        current = self.GetFirstVisibleLine()
+        while(self.GetLineVisible(current)):
+            line_start = self.PositionFromLine(current)
+            if line_start < 0:
+                break
+            line = self.GetLine(current)
+
+            #print line, line_start
+            match = self._regex.search(line)
+            style = [STYLE_DEFAULT] * len(line)
+            if match:
+                num_groups = len(match.groups())
+                for i in range(num_groups+1):
+                    for j in range(match.start(i), match.end(i)):
+                        new_style = self.get_style(i)
+                        if style[j] != STYLE_DEFAULT:
+                            style[j] = new_style | STYLE_OVERLAP
+                        else:
+                            style[j] = new_style
+            self.StartStyling(line_start, 0xff)
+            #print 'StartStyling(%s,...)' % line_start
+            style_str = ''.join(map(chr,style))
+            self.SetStyleBytes(len(style), style_str)
+            #print 'SetStyleBytes(...,%s)' % style
+            current += 1
+    def OnUpdate(self, evt):
+        print 'MyRegexMatchCtrl.OnUpdate'
+        self.DoRegexStyle(self)
+        self._CallHandlers(self)
+
+def MyReplaceTextCtrl(MyStyledTextCtrl):
+    pass
+
 class MyReChoice(wx.Choice):
     def SetTextCtrl(self, ctrl):
         self._text_ctrl = ctrl
@@ -306,7 +383,7 @@ class MyFrame(wx.Frame):
     def __init__(self, *args, **kwds):
         wx.Frame.__init__(self, *args, **kwds)
         style_init()
-        # begin wxGlade: MyFrame.__init__
+
         kwds["style"] = wx.DEFAULT_FRAME_STYLE
         self.notebook_1 = wx.Notebook(self)
         self.pattern_matching_pane = wx.Panel(self.notebook_1, -1)
@@ -314,24 +391,24 @@ class MyFrame(wx.Frame):
 
         self.pattern_match_pattern = MyPatternStyledTextCtrl(self.pattern_matching_pane, -1)
         self.load_file_button = wx.Button(self.pattern_matching_pane, -1, "load text from file")
-        self.regex_type_choice = MyReChoice(self.pattern_matching_pane, -1, choices=["Extended", "POSIX", ])
-        self.pattern_match_text = MyStyledTextCtrl(self.pattern_matching_pane, -1)
+        self.regex_type_choice = MyReChoice(self.pattern_matching_pane, -1, choices=["POSIX Extended", "POSIX Basic", ])
+        self.pattern_match_text = MyRegexMatchCtrl(self.pattern_matching_pane, -1)
 
         self.search_pattern = MyPatternStyledTextCtrl(self.search_replace_pane, -1, "")
-        self.search_text_box = MyStyledTextCtrl(self.search_replace_pane, -1)
+        self.search_text_box = MyRegexMatchCtrl(self.search_replace_pane, -1)
         self.replace_pattern = MyPatternStyledTextCtrl(self.search_replace_pane, -1, "")
-        self.replace_text_box = MyStyledTextCtrl(self.search_replace_pane, -1)
+        self.replace_text_box = MyRegexMatchCtrl(self.search_replace_pane, -1)
 
         self.__set_properties()
         self.__do_layout()
-        # end wxGlade
-        #self.pattern_match_text.pattern = self.search_pattern
-        self.pattern_match_text.SetLexer(stc.STC_LEX_CONTAINER)
-        self.Bind(stc.EVT_STC_STYLENEEDED, self.pattern_match_text.DoRegexStyle, self.pattern_match_text)
+
+        self.Bind(stc.EVT_STC_STYLENEEDED, self.pattern_match_text.OnUpdate, self.pattern_match_text)
         self.Bind(wx.EVT_TEXT, self.pattern_match_pattern.OnUpdate, self.pattern_match_pattern)
         self.Bind(wx.EVT_CHAR, self.pattern_match_pattern.OnUpdate, self.pattern_match_pattern)
-        self.pattern_match_text.StyleSetSpec( 0x20, 'fore:#999999,back:#0000000,face:Courier,size:14') # "default"
-        self.pattern_match_text.StyleSetSpec( 0x00, 'fore:#999999,back:#0000000,face:Courier,size:14')
+
+        self.Bind(stc.EVT_STC_STYLENEEDED, self.search_text_box.OnUpdate, self.pattern_match_text)
+        self.Bind(wx.EVT_TEXT, self.search_pattern.OnUpdate, self.search_pattern)
+        self.Bind(wx.EVT_CHAR, self.search_pattern.OnUpdate, self.search_pattern)
         for i in range(len(group_color_names)):
             self.pattern_match_text.StyleSetForeground(i+1,group_color_names[i])
             self.pattern_match_text.StyleSetBackground(i+1,'BLACK')
@@ -342,10 +419,12 @@ class MyFrame(wx.Frame):
 
     def __set_properties(self):
         # begin wxGlade: MyFrame.__set_properties
-        self.SetTitle("frame_1")
+        self.SetTitle("Regular Expressions")
         self.regex_type_choice.SetSelection(0)
         # end wxGlade
-        self.pattern_match_pattern.SetTextBox(self.pattern_match_text)
+        #self.pattern_match_pattern.SetTextBox(self.pattern_match_text)
+        self.pattern_match_pattern.AddHandler(self.pattern_match_text.SetRegex)
+        self.search_pattern.AddHandler(self.search_text_box.SetRegex)
 
     def __do_layout(self):
         #main_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -399,61 +478,11 @@ class MyFrame(wx.Frame):
             #lines.append('\x00')
         ctrl.AddStyledText(''.join(lines))
             
-    
-#    def DoPatternStyle(self, evt):
-#        self.DoRegexStyle( evt, self.pattern_match_text, self.pattern_match_pattern)
-    
-class MyStyledTextCtrl(stc.StyledTextCtrl):
-    def SetRegex(self, regex):
-        self._regex = re.compile(regex)
-        print "SetRegex(%s)" % regex
-        print self
-        self.DoRegexStyle(None)
-    def get_style(self, group_num):
-        return (group_num % 32) + 1
-    def DoRegexStyle(self, evt):
-        if not hasattr(self,'_regex'):
-            print '_regex undefined'
-            return
-        print 'DoRegexStyle'
-        #print dir(evt)
-        #self.GetEndStyled()
-        #regex = re.compile(r'abc(.)(.)(.(.).)')
-        #print evt.Position
-        current = self.GetFirstVisibleLine()
-        while(self.GetLineVisible(current)):
-            line_start = self.PositionFromLine(current)
-            if line_start < 0:
-                break
-            line = self.GetLine(current)
-
-            print line, line_start
-            match = self._regex.search(line)
-            style = [STYLE_DEFAULT] * len(line)
-            if match:
-                num_groups = len(match.groups())
-                for i in range(num_groups+1):
-                    for j in range(match.start(i), match.end(i)):
-                        new_style = self.get_style(i)
-                        if style[j] != STYLE_DEFAULT:
-                            style[j] = new_style | STYLE_OVERLAP
-                        else:
-                            style[j] = new_style
-            self.StartStyling(line_start, 0xff)
-            #print 'StartStyling(%s,...)' % line_start
-            style_str = ''.join(map(chr,style))
-            self.SetStyleBytes(len(style), style_str)
-            print 'SetStyleBytes(...,%s)' % style
-            current += 1
-
-
-# end of class MyFrame
-
 
 if __name__ == "__main__":
     app = wx.PySimpleApp(0)
     wx.InitAllImageHandlers()
-    frame_1 = MyFrame(None, -1, "")
-    app.SetTopWindow(frame_1)
-    frame_1.Show()
+    main_frame = MyFrame(None, -1, "")
+    app.SetTopWindow(main_frame)
+    main_frame.Show()
     app.MainLoop()
