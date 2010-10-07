@@ -555,18 +555,6 @@ class MyFrame(wx.Frame):
         self.pattern_matching_pane.SetSizer(main_pattern_sizer)
 
         
-        #search_sizer = wx.BoxSizer(wx.VERTICAL)
-        #search_sizer.Add(self.search_pattern_label, 0, 0, 0)
-        #search_sizer.Add(self.search_pattern, 0, wx.EXPAND, 0)
-        #search_sizer.Add(self.search_text_box_label, 0, 0, 0)
-        #search_sizer.Add(self.search_text_box, 3, wx.EXPAND, 0)
-
-        #replace_sizer = wx.BoxSizer(wx.VERTICAL)
-        #replace_sizer.Add(self.replace_pattern_label, 0, 0, 0)
-        #replace_sizer.Add(self.replace_pattern, 0, wx.EXPAND, 0)
-        #replace_sizer.Add(self.replace_text_box_label, 0, 0, 0)
-        #replace_sizer.Add(self.replace_text_box, 3, wx.EXPAND, 0)
-
         search_pattern_sizer = wx.BoxSizer(wx.VERTICAL)
         search_pattern_sizer.Add(wx.StaticText(self.search_replace_pane, -1, "Search Pattern"))
         search_pattern_sizer.Add(self.search_pattern, 0, wx.EXPAND, 0)
