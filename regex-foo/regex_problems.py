@@ -38,8 +38,13 @@ class BasePatternMatchingPane(wx.Panel):
         my_sizer.Add(wx.StaticText(self, -1, "Matched Text"), 0, 0, 0)
         my_sizer.Add(self.text, 3, wx.EXPAND, 0)
         return my_sizer
+    def _GetTopSizer(self):
+        return None
     def GetSizer(self):
         my_sizer = wx.BoxSizer(wx.VERTICAL)
+        x = self._GetTopSizer()
+        if x:
+            my_sizer.Add(x, 1, wx.EXPAND, 0)
         my_sizer.Add(self._GetPatternSizer(), 1, wx.EXPAND, 0)
         my_sizer.Add(self._GetOptionsSizer(), 0, 0, 0)
         my_sizer.Add(self._GetTextSizer(), 5, wx.EXPAND, 0)
@@ -73,6 +78,10 @@ class BaseSearchReplacePane(BasePatternMatchingPane):
         return my_sizer
     def GetSizer(self):
         my_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        x = self._GetTopSizer()
+        if x:
+            my_sizer.Add(x, 1, wx.EXPAND, 0)
 
         patterns = wx.BoxSizer(wx.HORIZONTAL)
         patterns.Add(self._GetPatternSizer(), 1, wx.EXPAND, 0)
@@ -122,6 +131,21 @@ class SearchReplacePane(BaseSearchReplacePane):
         sizer = BaseSearchReplacePane._GetOptionsSizer(self)
         sizer.Add(self.load_file_button, 0, 0, 0)
         return sizer
+
+class PatternMatchingProblemsPane(BasePatternMatchingPane):
+    def __init__(self, *args, **kw):
+        BasePatternMatchingPane.__init__(self, *args, **kw)
+        self._problem_number = 0
+    def _GetTopSizer(self):
+        # Layout for description, prev, next, etc.
+        pass
+    def NextProblem(self, evt):
+        pass
+    def PrevProblem(self, evt):
+        pass
+    def LoadProblem(self, number):
+        pass
+
 
 class MainFrame(wx.Frame):
     def __init__(self, *args, **kwds):
