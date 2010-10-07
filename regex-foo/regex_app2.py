@@ -327,7 +327,8 @@ class MyStyledTextCtrl(wx.stc.StyledTextCtrl):
             self.StyleSetForeground(i+1,group_color_names[i])
             self.StyleSetBackground(i+1,'BLACK')
         self._regex_text = ''
-        self._regex=re.compile(self._regex_text)
+        self._regex_flags = re.MULTILINE
+        self._regex=re.compile(self._regex_text, self._regex_flags)
     def AddHandler(self, handler):
         self._callbacks.append(handler)
     def _CallHandlers(self, *args, **kw):
@@ -335,12 +336,19 @@ class MyStyledTextCtrl(wx.stc.StyledTextCtrl):
             handler( *args, **kw )
     def SetRegex(self, **kw):
         log(5, "MyStyledTextCtrl.SetRegex", kw)
-        if not kw.has_key('regex_text'):
-            return
-        regex_text = kw['regex_text']
-        if self._regex_text != regex_text:
+        recompile = False
+        if kw.has_key('flags'):
+            flags = kw['flags']
+            if self._regex_flags != flags:
+                self._regex_flags = flags
+                recompile=True
+        if kw.has_key('regex_text'):
+            regex_text = kw['regex_text']
+        else:
+            regex_text = self._regex_text
+        if recompile or self._regex_text != regex_text:
             self._regex_text = regex_text
-            self._regex = re.compile(self._regex_text)
+            self._regex = re.compile(self._regex_text, self._regex_flags)
             self._CallHandlers( regex=self._regex, regex_text = self._regex_text )
             self.OnUpdate(caller='MyStyledTextCtrl.SetRegex')
 
@@ -433,6 +441,33 @@ class MyReChoice(wx.Choice):
     def OnChange(self, evt):
         self._text_ctrl.SetReStyle(self.GetSelection)
 
+class RECheckboxes(object):
+    def __init__(self, parent):
+        self._valid_flags = ['DOTALL', 'IGNORECASE', 'MULTILINE']
+        for i in self._valid_flags:
+            setattr(self, i, wx.CheckBox(parent, -1, i))
+        self.MULTILINE.SetValue(True)
+    def GetFlags(self):
+        flags = 0
+        for i in self._valid_flags:
+            box = getattr(self, i)
+            if box.GetValue():
+                flags |= getattr(re, i)
+        return flags
+    def AddToSizer(self, sizer):
+        for i in self._valid_flags:
+            sizer.Add( getattr(self, i) )
+    def __repr__(self):
+        flags = []
+        for i in self._valid_flags:
+            box = getattr(self, i)
+            if box.GetValue():
+                flags.append('re.'+i)
+        return '|'.join(flags)
+    def Bind(self, frame, fcn):
+        for i in self._valid_flags:
+            frame.Bind(wx.EVT_CHECKBOX, fcn, getattr(self, i))
+
 class MyFrame(wx.Frame):
     def __init__(self, *args, **kwds):
         wx.Frame.__init__(self, *args, **kwds)
@@ -446,20 +481,17 @@ class MyFrame(wx.Frame):
         #self.sr_problems_pane = wx.Panel(self.notebook_1, -1)
 
         self.pm_file_dlg = wx.FileDialog(self, "Choose File", )
-        self.pattern_match_pattern_label = wx.StaticText(self.pattern_matching_pane, -1, 'Regular expression')
         self.pattern_match_pattern = MyPatternStyledTextCtrl(self.pattern_matching_pane, -1)
         self.pm_load_file_button = wx.Button(self.pattern_matching_pane, -1, "load text from file")
-        #self.regex_type_choice = MyReChoice(self.pattern_matching_pane, -1, choices=["POSIX Extended", "POSIX Basic", ])
-        self.pattern_match_text_label = wx.StaticText(self.pattern_matching_pane, -1, 'Matched text')
+        self.pm_flags = RECheckboxes(self.pattern_matching_pane)
         self.pattern_match_text = MyRegexMatchCtrl(self.pattern_matching_pane, -1)
 
-        self.search_pattern_label = wx.StaticText(self.search_replace_pane, -1, 'Search pattern')
+        self.sr_file_dlg = wx.FileDialog(self, "Choose File", )
         self.search_pattern = MyPatternStyledTextCtrl(self.search_replace_pane, -1, "")
-        self.search_text_box_label = wx.StaticText(self.search_replace_pane, -1, 'Search pattern matched text')
+        self.sr_load_file_button = wx.Button(self.search_replace_pane, -1, "load text from file")
+        self.sr_flags = RECheckboxes(self.search_replace_pane)
         self.search_text_box = MyRegexMatchCtrl(self.search_replace_pane, -1)
-        self.replace_pattern_label = wx.StaticText(self.search_replace_pane, -1, 'Replacement pattern')
         self.replace_pattern = MyReplacePatternStyledTextCtrl(self.search_replace_pane, -1, "")
-        self.replace_text_box_label = wx.StaticText(self.search_replace_pane, -1, 'Replaced text')
         self.replace_text_box = MyReplaceTextCtrl(self.search_replace_pane, -1)
 
         self.__set_properties()
@@ -474,6 +506,9 @@ class MyFrame(wx.Frame):
         self.Bind(wx.EVT_CHAR, self.search_pattern.OnUpdate, self.search_pattern)
 
         self.Bind(wx.EVT_BUTTON, self.PMFileOpen, self.pm_load_file_button)
+        self.Bind(wx.EVT_BUTTON, self.SRFileOpen, self.sr_load_file_button)
+        self.pm_flags.Bind(self, self.UpdatePMFlags)
+        self.sr_flags.Bind(self, self.UpdateSRFlags)
 
         #self.Bind(stc.EVT_STC_STYLENEEDED, self.replace_text_box.OnUpdate, self.replace_text_box) # handled directly, this causes quite a loop...
         self.Bind(wx.EVT_TEXT, self.replace_pattern.OnUpdate, self.replace_pattern)
@@ -493,38 +528,81 @@ class MyFrame(wx.Frame):
             fname = self.pm_file_dlg.GetFilename()
             fdir = self.pm_file_dlg.GetDirectory()
             self.pattern_match_text.LoadFile(os.path.join(fdir, fname) )
+    def SRFileOpen(self, evt):
+        if self.sr_file_dlg.ShowModal() == wx.ID_OK:
+            fname = self.sr_file_dlg.GetFilename()
+            fdir = self.sr_file_dlg.GetDirectory()
+            self.search_text_box.LoadFile(os.path.join(fdir, fname) )
+    def UpdatePMFlags(self, evt):
+        self.pattern_match_text.SetRegex( flags=self.pm_flags.GetFlags() )
+    def UpdateSRFlags(self, evt):
+        self.search_replace_text.SetRegex( flags=self.sr_flags.GetFlags() )
     def __do_layout(self):
         #main_sizer = wx.BoxSizer(wx.VERTICAL)
         main_sizer = wx.BoxSizer()
         
         pattern_options_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        pattern_options_sizer.Add(wx.StaticText(self.pattern_matching_pane, -1, "(Flags)  "))
+        self.pm_flags.AddToSizer(pattern_options_sizer)
         pattern_options_sizer.Add(self.pm_load_file_button, 0, wx.ALIGN_CENTER_VERTICAL, 0)
-        #pattern_options_sizer.Add(self.regex_type_choice, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALIGN_CENTER_VERTICAL, 0)
 
         main_pattern_sizer = wx.BoxSizer(wx.VERTICAL)
-        main_pattern_sizer.Add(self.pattern_match_pattern_label, 0, 0, 0)
+        main_pattern_sizer.Add(wx.StaticText(self.pattern_matching_pane, -1, "Search Pattern"), 0, 0, 0)
         main_pattern_sizer.Add(self.pattern_match_pattern, 0, wx.EXPAND, 0)
         main_pattern_sizer.Add(pattern_options_sizer, 0, wx.EXPAND, 0)
-        main_pattern_sizer.Add(self.pattern_match_text_label, 0, 0, 0)
+        main_pattern_sizer.Add(wx.StaticText(self.pattern_matching_pane, -1, "Matched Text"), 0, 0, 0)
         main_pattern_sizer.Add(self.pattern_match_text, 100, wx.EXPAND, 0)
         self.pattern_matching_pane.SetSizer(main_pattern_sizer)
 
         
-        search_sizer = wx.BoxSizer(wx.VERTICAL)
-        search_sizer.Add(self.search_pattern_label, 0, 0, 0)
-        search_sizer.Add(self.search_pattern, 0, wx.EXPAND, 0)
-        search_sizer.Add(self.search_text_box_label, 0, 0, 0)
-        search_sizer.Add(self.search_text_box, 3, wx.EXPAND, 0)
+        #search_sizer = wx.BoxSizer(wx.VERTICAL)
+        #search_sizer.Add(self.search_pattern_label, 0, 0, 0)
+        #search_sizer.Add(self.search_pattern, 0, wx.EXPAND, 0)
+        #search_sizer.Add(self.search_text_box_label, 0, 0, 0)
+        #search_sizer.Add(self.search_text_box, 3, wx.EXPAND, 0)
 
-        replace_sizer = wx.BoxSizer(wx.VERTICAL)
-        replace_sizer.Add(self.replace_pattern_label, 0, 0, 0)
-        replace_sizer.Add(self.replace_pattern, 0, wx.EXPAND, 0)
-        replace_sizer.Add(self.replace_text_box_label, 0, 0, 0)
-        replace_sizer.Add(self.replace_text_box, 3, wx.EXPAND, 0)
+        #replace_sizer = wx.BoxSizer(wx.VERTICAL)
+        #replace_sizer.Add(self.replace_pattern_label, 0, 0, 0)
+        #replace_sizer.Add(self.replace_pattern, 0, wx.EXPAND, 0)
+        #replace_sizer.Add(self.replace_text_box_label, 0, 0, 0)
+        #replace_sizer.Add(self.replace_text_box, 3, wx.EXPAND, 0)
 
-        main_sr_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        main_sr_sizer.Add(search_sizer, 1, wx.EXPAND, 0)
-        main_sr_sizer.Add(replace_sizer, 1, wx.EXPAND, 0)
+        search_pattern_sizer = wx.BoxSizer(wx.VERTICAL)
+        search_pattern_sizer.Add(wx.StaticText(self.search_replace_pane, -1, "Search Pattern"))
+        search_pattern_sizer.Add(self.search_pattern, 0, wx.EXPAND, 0)
+        
+        replace_pattern_sizer = wx.BoxSizer(wx.VERTICAL)
+        replace_pattern_sizer.Add(wx.StaticText(self.search_replace_pane, -1, "Replace with"))
+        replace_pattern_sizer.Add(self.replace_pattern, 0, wx.EXPAND, 0)
+
+        search_options_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        search_options_sizer.Add(wx.StaticText(self.search_replace_pane, -1, "(Flags)  "))
+        self.sr_flags.AddToSizer(search_options_sizer)
+        search_options_sizer.Add(self.sr_load_file_button, -1, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+
+        search_text_sizer = wx.BoxSizer(wx.VERTICAL)
+        search_text_sizer.Add(wx.StaticText(self.search_replace_pane, -1, "Matched Text"))
+        search_text_sizer.Add(self.search_text_box, 3, wx.EXPAND, 0)
+
+        replace_text_sizer = wx.BoxSizer(wx.VERTICAL)
+        replace_text_sizer.Add(wx.StaticText(self.search_replace_pane, -1, "Replaced Text"))
+        replace_text_sizer.Add(self.replace_text_box, 3, wx.EXPAND, 0)
+
+        patterns_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        patterns_sizer.Add(search_pattern_sizer, 1, wx.EXPAND, 0)
+        patterns_sizer.Add(replace_pattern_sizer, 1, wx.EXPAND, 0)
+
+        text_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        text_sizer.Add(search_text_sizer, 1, wx.EXPAND, 0)
+        text_sizer.Add(replace_text_sizer, 1, wx.EXPAND, 0)
+
+        #main_sr_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        #main_sr_sizer.Add(search_sizer, 1, wx.EXPAND, 0)
+        #main_sr_sizer.Add(replace_sizer, 1, wx.EXPAND, 0)
+        main_sr_sizer = wx.BoxSizer(wx.VERTICAL)
+        main_sr_sizer.Add(patterns_sizer, 1, wx.EXPAND, 0)
+        main_sr_sizer.Add(search_options_sizer, 0, 0, 0)
+        main_sr_sizer.Add(text_sizer, 5, wx.EXPAND, 0)
 
         self.search_replace_pane.SetSizer(main_sr_sizer)
         
