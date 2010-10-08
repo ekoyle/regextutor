@@ -24,74 +24,7 @@ group_color_names = [
         'VIOLET',
         'VIOLET RED',
 
-        #'AQUAMARINE',
-        #'BLACK',
-        #'BLUE',
-        #'BLUE VIOLET',
-        #'BROWN',
-        #'CADET BLUE',
-        #'CORAL',
-        #'CORNFLOWER BLUE',
-        #'CYAN',
-        #'DARK GREY',
-        #'DARK GREEN',
-        #'DARK OLIVE GREEN',
-        #'DARK ORCHID',
-        #'DARK SLATE BLUE',
-        #'DARK SLATE GREY',
-        #'DARK TURQUOISE',
-        #'DIM GREY',
-        #'FIREBRICK',
-        #'FOREST GREEN',
-        #'GOLD',
-        #'GOLDENROD',
-        #'GREY',
-        #'GREEN',
-        #'GREEN YELLOW',
-        #'INDIAN RED',
-        #'KHAKI',
-        #'LIGHT BLUE',
-        #'LIGHT GREY',
-        #'LIGHT STEEL BLUE',
-        #'LIME GREEN',
-        #'MAGENTA',
-        #'MAROON',
-        #'MEDIUM AQUAMARINE',
-        #'MEDIUM BLUE',
-        #'MEDIUM FOREST GREEN',
-        #'MEDIUM GOLDENROD',
-        #'MEDIUM ORCHID',
-        #'MEDIUM SEA GREEN',
-        #'MEDIUM SLATE BLUE',
-        #'MEDIUM SPRING GREEN',
-        #'MEDIUM TURQUOISE',
-        #'MEDIUM VIOLET RED',
-        #'MIDNIGHT BLUE',
-        #'NAVY',
-        #'ORANGE',
-        #'ORANGE RED',
-        #'ORCHID',
-        #'PALE GREEN',
-        #'PINK',
-        #'PLUM',
-        #'PURPLE',
-        #'RED',
-        #'SALMON',
-        #'SEA GREEN',
-        #'SIENNA',
-        #'SKY BLUE',
-        #'SLATE BLUE',
-        #'SPRING GREEN',
-        #'STEEL BLUE',
-        #'TAN',
-        #'THISTLE',
-        #'TURQUOISE',
-        #'VIOLET',
-        #'VIOLET RED',
-        #'WHEAT',
-        #'WHITE',
-        #'YELLOW',
-        #'YELLOW GREEN',
+        # Valid colors are: 'AQUAMARINE', 'BLACK', 'BLUE', 'BLUE VIOLET', 'BROWN', 'CADET BLUE', 'CORAL', 'CORNFLOWER BLUE', 'CYAN', 'DARK GREY', 'DARK GREEN', 'DARK OLIVE GREEN', 'DARK ORCHID', 'DARK SLATE BLUE', 'DARK SLATE GREY', 'DARK TURQUOISE', 'DIM GREY', 'FIREBRICK', 'FOREST GREEN', 'GOLD', 'GOLDENROD', 'GREY', 'GREEN', 'GREEN YELLOW', 'INDIAN RED', 'KHAKI', 'LIGHT BLUE', 'LIGHT GREY', 'LIGHT STEEL BLUE', 'LIME GREEN', 'MAGENTA', 'MAROON', 'MEDIUM AQUAMARINE', 'MEDIUM BLUE', 'MEDIUM FOREST GREEN', 'MEDIUM GOLDENROD', 'MEDIUM ORCHID', 'MEDIUM SEA GREEN', 'MEDIUM SLATE BLUE', 'MEDIUM SPRING GREEN', 'MEDIUM TURQUOISE', 'MEDIUM VIOLET RED', 'MIDNIGHT BLUE', 'NAVY', 'ORANGE', 'ORANGE RED', 'ORCHID', 'PALE GREEN', 'PINK', 'PLUM', 'PURPLE', 'RED', 'SALMON', 'SEA GREEN', 'SIENNA', 'SKY BLUE', 'SLATE BLUE', 'SPRING GREEN', 'STEEL BLUE', 'TAN', 'THISTLE', 'TURQUOISE', 'VIOLET', 'VIOLET RED', 'WHEAT', 'WHITE', 'YELLOW', 'YELLOW GREEN',
         ]
 
 group_styles = None
@@ -172,6 +105,17 @@ def style_init():
 
 def print_style(style):
     log( 3, 'print_style', ' '.join([style.GetFont(), style.GetTextColour(), style.GetBackgroundColour()]) )
+
+class MyROTextCtrl(wx.TextCtrl):
+    def __init__(self, *args, **kw):
+        if not kw.has_key('style'):
+            kw['style'] = wx.TE_RICH2 | wx.TE_MULTILINE | wx.TE_READONLY
+        wx.TextCtrl.__init__(self, *args, **kw)
+        if not self.SetDefaultStyle( default_style ):
+            log(1, 'MyPatternStyledTextCtrl.__init__', "Failed to set default style")
+        self.SetBackgroundColour('BLACK')
+        self.SetForegroundColour('WHITE')
+        self.SetFont(default_font)
 
 class MyPatternStyledTextCtrl(wx.TextCtrl):
     def __init__(self, *args, **kw):

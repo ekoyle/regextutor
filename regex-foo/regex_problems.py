@@ -136,9 +136,20 @@ class PatternMatchingProblemsPane(BasePatternMatchingPane):
     def __init__(self, *args, **kw):
         BasePatternMatchingPane.__init__(self, *args, **kw)
         self._problem_number = 0
+        self.problem_description = regex_app.MyROTextCtrl(self, -1, "")
+        self.back = wx.Button(self, -1, "< Previous")
+        self.forward = wx.Button(self, -1, "Next >")
+    def _GetNavSizer(self):
+        my_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        my_sizer.Add(self.back, 0, 0, 0)
+        my_sizer.Add(self.forward, 0, 0, 0)
+        #my_sizer.Add(self., 0, 0, 0)
     def _GetTopSizer(self):
         # Layout for description, prev, next, etc.
-        pass
+        my_sizer = wx.BoxSizer(wx.VERTICAL)
+        my_sizer.Add(self.problem_description, 1, wx.EXPAND, 0)
+        my_sizer.Add(self._GetNavSizer())
+        return my_sizer
     def NextProblem(self, evt):
         pass
     def PrevProblem(self, evt):
