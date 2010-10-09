@@ -153,7 +153,7 @@ def toklen(toks):
         return len(toks)
     tlen = 0
     for t in toks:
-        print type(toks), type(t)
+        #print type(toks), type(t)
         tlen += toklen(t)
     return tlen
 

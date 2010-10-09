@@ -7,6 +7,8 @@ import regex_app
 import re
 import os
 
+import problems
+
 pm_problem_filename = 'pm.dat'
 sr_problem_filename = 'sr.dat'
 
@@ -101,7 +103,7 @@ class PatternMatchingPane(BasePatternMatchingPane):
     def __init__(self, *args, **kw):
         BasePatternMatchingPane.__init__(self, *args, **kw)
         self.file_dlg = wx.FileDialog(self, "Choose File", )
-        self.load_file_button = wx.Button(self, -1, "load text from file")
+        self.load_file_button = wx.Button(self, -1, "load text from file", style=wx.BU_EXACTFIT)
     def FileOpen(self, evt):
         if self.file_dlg.ShowModal() == wx.ID_OK:
             fname = self.file_dlg.GetFilename()
@@ -119,7 +121,7 @@ class SearchReplacePane(BaseSearchReplacePane):
     def __init__(self, *args, **kw):
         BaseSearchReplacePane.__init__(self, *args, **kw)
         self.file_dlg = wx.FileDialog(self, "Choose File", )
-        self.load_file_button = wx.Button(self, -1, "load text from file")
+        self.load_file_button = wx.Button(self, -1, "load text from file", style=wx.BU_EXACTFIT)
     def FileOpen(self, evt):
         if self.file_dlg.ShowModal() == wx.ID_OK:
             fname = self.file_dlg.GetFilename()
@@ -137,11 +139,17 @@ class PatternMatchingProblemsPane(BasePatternMatchingPane):
     def __init__(self, *args, **kw):
         BasePatternMatchingPane.__init__(self, *args, **kw)
         self._problem_number = 0
-        self.problem_description = regex_app.MyROTextCtrl(self, -1)
-        self.back = wx.Button(self, -1, "< Previous")
-        self.forward = wx.Button(self, -1, "Next >")
+        self._problems = problems.LoadPMProblems()
+        self.problem_description = regex_app.MyROTextCtrl(self)
+        self.correcting_button = wx.ToggleButton(self, -1, "Check Solution", style=wx.BU_EXACTFIT)
+        self.hint_button = wx.Button(self, -1, 'Show Hint', style=wx.BU_EXACTFIT)
+        self.back = wx.Button(self, -1, "< Previous", style=wx.BU_EXACTFIT)
+        self.forward = wx.Button(self, -1, "Next >", style=wx.BU_EXACTFIT)
+        self.LoadProblem()
     def _GetNavSizer(self):
         my_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        my_sizer.Add(self.correcting_button, 0, 0, 0)
+        my_sizer.Add(self.hint_button, 0, 0, 0)
         my_sizer.Add(self.back, 0, 0, 0)
         my_sizer.Add(self.forward, 0, 0, 0)
         #my_sizer.Add(self., 0, 0, 0)
@@ -157,13 +165,46 @@ class PatternMatchingProblemsPane(BasePatternMatchingPane):
         my_sizer.Add(self._GetProblemSizer(), 1, wx.EXPAND, 0)
         my_sizer.Add(self._GetNavSizer(), 0, wx.EXPAND, 0)
         return my_sizer
+    def SetHandlers(self, frame):
+        BasePatternMatchingPane.SetHandlers(self, frame)
+        frame.Bind(wx.EVT_TOGGLEBUTTON, self.ToggleCorrecting, self.correcting_button)
+        frame.Bind(wx.EVT_BUTTON, self.ShowHint, self.hint_button)
+        frame.Bind(wx.EVT_BUTTON, self.NextProblem, self.forward)
+        frame.Bind(wx.EVT_BUTTON, self.PrevProblem, self.back)
+    def ToggleCorrecting(self, evt):
+        correcting = self.correcting_button.GetValue()
+        self.text.SetShowCorrections(correcting)
+    def ShowHint(self, evt):
+        problem = self._problems[self._problem_number]
+        dlg = wx.MessageDialog(self, message=problem.hint, caption='Hint', style=wx.OK)
+        dlg.ShowModal()
+        del dlg
     def NextProblem(self, evt):
-        pass
+        print 'NextProblem'
+        curr = self._problem_number
+        n = curr + 1
+        if n < len(self._problems):
+            self.LoadProblem(n)
     def PrevProblem(self, evt):
-        pass
-    def LoadProblem(self, number):
-        pass
-
+        print 'PrevProblem'
+        curr = self._problem_number
+        p = curr - 1
+        if p >= 0:
+            self.LoadProblem(p)
+    def LoadProblem(self, number = None):
+        print 'LoadProblem(%s)' % number
+        if number is None:
+            number = self._problem_number
+        oldproblem = self._problems[self._problem_number]
+        oldproblem.user_pattern = self.pattern.GetValue()
+        problem = self._problems[number]
+        self.problem_description.SetText('Problem %d: %s' % (number + 1, problem.description))
+        self.pattern.SetValue(problem.user_pattern)
+        self.text.SetPreferred(problem.solution_pattern, problem.flags)
+        self.text.SetText(problem.test)
+        self.correcting_button.SetValue(False)
+        self.ToggleCorrecting(None)
+        self._problem_number = number
 
 class MainFrame(wx.Frame):
     def __init__(self, *args, **kwds):
@@ -180,11 +221,11 @@ class MainFrame(wx.Frame):
         self.pm_problem_pane.SetHandlers(self)
         self.pm_problem_pane.SetSizer(self.pm_problem_pane.GetSizer())
 
-        self.pm_problem_pane.pattern.SetValue(r'([a-z])[a-z]\\1')
-        self.pm_problem_pane.text.SetPreferred(r'([a-z])[a-z]\1', re.MULTILINE)
-        txt = "abc\nabcb\nab bc\na a\nwz\\1\n"
-        self.pm_problem_pane.text.SetText(txt)
-        self.pm_problem_pane.text.SetShowCorrections(True)
+        #self.pm_problem_pane.pattern.SetValue(r'([a-z])[a-z]\\1')
+        #self.pm_problem_pane.text.SetPreferred(r'([a-z])[a-z]\1', re.MULTILINE)
+        #txt = "abc\nabcb\nab bc\na a\nwz\\1\n"
+        #self.pm_problem_pane.text.SetText(txt)
+        #self.pm_problem_pane.text.SetShowCorrections(True)
 
         self.pm_pane = PatternMatchingPane(self.notebook, -1)
         self.pm_pane.SetHandlers(self)

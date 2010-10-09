@@ -1,106 +1,137 @@
-Description:
+description:
  an upper-case letter
-Hint:
+hint:
  use a character set
-PreferredSolution:
+solution_pattern:
  [A-Z]
-Tests:
- +A
- -abcdefgh
- +aXc
- -12345
- +acdE
+test:
+ A
+ abcdefgh
+ aXc
+ 12345
+ acdE
+ ABCDEFGHIJKLMNOPQRSTUVWXYZ
+ abcdefghijklmnopqrstuvwxyz
+ 1234567890[]/=	',-;
 
-Description:
+description:
  a lower-case letter at the beginning of a line
-Hint:
+hint:
  use an anchor
-PreferredSolution:
+flags:
+ MULTILINE
+solution_pattern:
  ^[a-z]
-Tests:
- +bcdefg
- -Abc
- +x
- -1abc
- +x123!
+test:
+ bcdefg
+ Abc
+ x
+ 1abc
+ x123!
 
-Description:
+description:
  a group of letters optionally followed by numbers
-Hint:
+hint:
  one or more letters followed by zero or more numbers
-PreferredSolution:
+solution_pattern:
  [a-zA-Z]+[0-9]*
-Tests:
- +abc123
- +abcdefg
- -1234
- +123abc123
- +abc123
+test:
+ abc123
+ abcdefg
+ 1234
+ 123abc123
+ abc123
 
-Description:
+description:
  double letters (of the same case)
-Hint:
+hint:
  use a backreference
-PreferredSolution:
+solution_pattern:
  ([a-zA-Z])\1
-Tests:
- +abbc
- +aabc
- +abcc
- -ababa
- -112233
+test:
+ abbc
+ aabc
+ abcc
+ ababa
+ 112233
 
-Description:
+description:
  a 'word' of letters
-PreferredSolution:
+hint:
+ use '\b' to match a word boundary
+solution_pattern:
  \b[a-zA-Z]+\b
-Tests:
- +abcde
- -123
- -123 124!
- +123 abc 124
- -abc1 2defg
+test:
+ abcde
+ 123
+ 123 124!
+ 123 abc 124
+ abc1 2defg
 
-Description:
+description:
  a lowercase three letter palindrome (word that is the same forward or backward)
-PreferredSolution:
+hint:
+ capture a group and use a backreference
+solution_pattern:
  \b([a-z])[a-z]\1\b
+test:
+ aba bab 121
+ 1a1 b2b
+ dud fud mum mummy
+ I hate writing these...
 
-Description:
+description:
  a lowercase palindrome that is either three or four letters
-PreferredSolution:
+hint:
+ make an optional backreference...
+solution_pattern:
  ([a-z])([a-z])\2?\1
+test:
+ aba cddc effeh
+ please don't match this line
+ abaci agog
+ a1a 1cc1
 
-Description:
+description:
  match a number between 0 and 255
-PreferredSolution:
+hint:
+ If at first you don't succeed, try alternation... again...
+solution_pattern:
  \b(1?[0-9][0-9]?|2[0-4][0-9]|25[0-5])\b
-Tests:
- +0
- +9
- +39
- +255 def
- +abc 199
- -1234
- -256
- -abc123
+test:
+ 0
+ 9
+ 39 99
+ 240 209
+ 100 111 199
+ 255 def
+ abc 199
+ 1234
+ 256
+ abc123
+ 45a
 
-Description:
+description:
  match an IP address (0.0.0.0 is fine)
-PreferredSolution:
+hint:
+ the previous problem is your building block...
+solution_pattern:
  \b(1?[0-9][0-9]?|2[0-4][0-9]|25[0-5]\.){3}(1?[0-9][0-9]?|2[0-4][0-9]|25[0-5])\b
-Tests:
- +192.168.0.255
- +255.20.128.8
- -1.1.1
- -1.1.256.0
- -1.1.1.1.
- -1.1.1.1.1
- -a1.1.1.1
- -1.1.1.1b
+test:
+ 192.168.0.255
+ 255.20.128.8
+ 1.1.1
+ 1.1.256.0
+ 1.1.1.1.
+ 1.1.1.1.1
+ a1.1.1.1
+ 1.1.1.1b
 
-Description:
+description:
  given a file with timestamps of the form ..., find any line that occurred between ... and ...
-
-
-
+hint:
+ fixme
+solution_pattern:
+ fixme
+test:
+ fixme
