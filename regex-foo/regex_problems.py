@@ -4,6 +4,7 @@ import wx
 from wx import stc
 import regex_app
 
+import re
 import os
 
 pm_problem_filename = 'pm.dat'
@@ -44,10 +45,10 @@ class BasePatternMatchingPane(wx.Panel):
         my_sizer = wx.BoxSizer(wx.VERTICAL)
         x = self._GetTopSizer()
         if x:
-            my_sizer.Add(x, 1, wx.EXPAND, 0)
+            my_sizer.Add(x, 0, wx.EXPAND, 0)
         my_sizer.Add(self._GetPatternSizer(), 1, wx.EXPAND, 0)
-        my_sizer.Add(self._GetOptionsSizer(), 0, 0, 0)
-        my_sizer.Add(self._GetTextSizer(), 5, wx.EXPAND, 0)
+        my_sizer.Add(self._GetOptionsSizer(), 0, wx.EXPAND, 0)
+        my_sizer.Add(self._GetTextSizer(), 4, wx.EXPAND, 0)
         return my_sizer
 
 class BaseSearchReplacePane(BasePatternMatchingPane):
@@ -136,7 +137,7 @@ class PatternMatchingProblemsPane(BasePatternMatchingPane):
     def __init__(self, *args, **kw):
         BasePatternMatchingPane.__init__(self, *args, **kw)
         self._problem_number = 0
-        self.problem_description = regex_app.MyROTextCtrl(self, -1, "")
+        self.problem_description = regex_app.MyROTextCtrl(self, -1)
         self.back = wx.Button(self, -1, "< Previous")
         self.forward = wx.Button(self, -1, "Next >")
     def _GetNavSizer(self):
@@ -144,11 +145,17 @@ class PatternMatchingProblemsPane(BasePatternMatchingPane):
         my_sizer.Add(self.back, 0, 0, 0)
         my_sizer.Add(self.forward, 0, 0, 0)
         #my_sizer.Add(self., 0, 0, 0)
+        return my_sizer
+    def _GetProblemSizer(self):
+        my_sizer = wx.BoxSizer(wx.VERTICAL)
+        my_sizer.Add(wx.StaticText(self, -1, "Problem"), 0, 0, 0)
+        my_sizer.Add(self.problem_description, 1, wx.EXPAND, 0)
+        return my_sizer
     def _GetTopSizer(self):
         # Layout for description, prev, next, etc.
         my_sizer = wx.BoxSizer(wx.VERTICAL)
-        my_sizer.Add(self.problem_description, 1, wx.EXPAND, 0)
-        my_sizer.Add(self._GetNavSizer())
+        my_sizer.Add(self._GetProblemSizer(), 1, wx.EXPAND, 0)
+        my_sizer.Add(self._GetNavSizer(), 0, wx.EXPAND, 0)
         return my_sizer
     def NextProblem(self, evt):
         pass
@@ -169,6 +176,16 @@ class MainFrame(wx.Frame):
 
         self.notebook = wx.Notebook(self)
 
+        self.pm_problem_pane = PatternMatchingProblemsPane(self.notebook, -1)
+        self.pm_problem_pane.SetHandlers(self)
+        self.pm_problem_pane.SetSizer(self.pm_problem_pane.GetSizer())
+
+        self.pm_problem_pane.pattern.SetValue(r'([a-z])[a-z]\\1')
+        self.pm_problem_pane.text.SetPreferred(r'([a-z])[a-z]\1', re.MULTILINE)
+        txt = "abc\nabcb\nab bc\na a\nwz\\1\n"
+        self.pm_problem_pane.text.SetText(txt)
+        self.pm_problem_pane.text.SetShowCorrections(True)
+
         self.pm_pane = PatternMatchingPane(self.notebook, -1)
         self.pm_pane.SetHandlers(self)
         self.pm_pane.SetSizer(self.pm_pane.GetSizer())
@@ -177,6 +194,7 @@ class MainFrame(wx.Frame):
         self.sr_pane.SetHandlers(self)
         self.sr_pane.SetSizer(self.sr_pane.GetSizer())
 
+        self.notebook.AddPage(self.pm_problem_pane, "Pattern Matching Problems")
         self.notebook.AddPage(self.pm_pane, "Pattern Matching")
         self.notebook.AddPage(self.sr_pane, "Search and Replace")
 

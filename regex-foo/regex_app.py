@@ -39,8 +39,15 @@ INVALID_STYLE = None
 
 FONT_SIZE=14
 
-#max_level = 1
-max_level = 20
+STYLE_MASK = stc.STC_INDICS_MASK
+STYLE_UNDERLINE=stc.STC_INDIC1_MASK
+STYLE_STRIKETHROUGH = stc.STC_INDIC2_MASK
+
+STYLE_UNDERLINE_NO = 1
+STYLE_STRIKETHROUGH_NO = 2
+
+max_level = 0
+#max_level = 20
 
 def log(level, fcn, s, sub=None,):
     if level <= max_level:
@@ -106,16 +113,19 @@ def style_init():
 def print_style(style):
     log( 3, 'print_style', ' '.join([style.GetFont(), style.GetTextColour(), style.GetBackgroundColour()]) )
 
-class MyROTextCtrl(wx.TextCtrl):
+class MyROTextCtrl(stc.StyledTextCtrl):
     def __init__(self, *args, **kw):
-        if not kw.has_key('style'):
-            kw['style'] = wx.TE_RICH2 | wx.TE_MULTILINE | wx.TE_READONLY
-        wx.TextCtrl.__init__(self, *args, **kw)
-        if not self.SetDefaultStyle( default_style ):
-            log(1, 'MyPatternStyledTextCtrl.__init__', "Failed to set default style")
-        self.SetBackgroundColour('BLACK')
-        self.SetForegroundColour('WHITE')
-        self.SetFont(default_font)
+        stc.StyledTextCtrl.__init__(self, *args, **kw)
+        self.StyleSetSpec( 0x20, 'fore:#ffffff,back:#0000000,face:Courier,size:%s' % FONT_SIZE) # "default"
+        self.StyleSetSpec( 0x00, 'fore:#ffffff,back:#0000000,face:Courier,size:%s' % FONT_SIZE)
+        #self.SetReadOnly(True)
+        self.SetText("Forgot to initialize text...")
+        self.SetScrollWidth(400)
+        self.SetHighlightGuide(0)
+    def SetText(self, text):
+        self.SetReadOnly(False)
+        stc.StyledTextCtrl.SetText(self, text)
+        self.SetReadOnly(True)
 
 class MyPatternStyledTextCtrl(wx.TextCtrl):
     def __init__(self, *args, **kw):
@@ -259,12 +269,15 @@ class MyReplacePatternStyledTextCtrl(MyPatternStyledTextCtrl):
             self._pattern_parser.parse(self._text)
             self._CallHandlers(replace=self._text)
 
+RE_MATCH_MARKER = 1
+
 class MyStyledTextCtrl(wx.stc.StyledTextCtrl):
     def __init__(self, *args, **kw):
         stc.StyledTextCtrl.__init__(self, *args, **kw)
         self.StyleSetSpec( 0x20, 'fore:#808080,back:#0000000,face:Courier,size:%s' % FONT_SIZE) # "default"
         self.StyleSetSpec( 0x00, 'fore:#808080,back:#0000000,face:Courier,size:%s' % FONT_SIZE)
         self.SetLexer(stc.STC_LEX_CONTAINER)
+        self.SetScrollWidth(800)
         self._callbacks = []
         self._text = ''
         for i in range(len(group_color_names)):
@@ -273,6 +286,14 @@ class MyStyledTextCtrl(wx.stc.StyledTextCtrl):
         self._regex_text = ''
         self._regex_flags = re.MULTILINE
         self._regex=re.compile(self._regex_text, self._regex_flags)
+        self.SetMarginType(0, stc.STC_MARGIN_NUMBER)
+        self.SetMarginWidth(0,22)
+        self.SetMarginType(1, stc.STC_MARGIN_SYMBOL)
+        self.MarkerDefine(RE_MATCH_MARKER, stc.STC_MARK_ARROW, "GREEN", "BLACK")
+        self.IndicatorSetStyle(STYLE_STRIKETHROUGH_NO, stc.STC_INDIC_STRIKE)
+        self.IndicatorSetForeground(STYLE_STRIKETHROUGH_NO, "RED")
+        self.IndicatorSetStyle(STYLE_UNDERLINE_NO, stc.STC_INDIC_PLAIN)
+        self.IndicatorSetForeground(STYLE_UNDERLINE_NO, "RED")
     def AddHandler(self, handler):
         self._callbacks.append(handler)
     def _CallHandlers(self, *args, **kw):
@@ -300,6 +321,14 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
     def __init__(self, *args, **kw):
         MyStyledTextCtrl.__init__(self, *args, **kw)
         self.SetCaretForeground('WHITE')
+        self._preferred = None
+        self._show_corrections = None
+    def SetPreferred(self, regex, flags):
+        self._preferred = re.compile(regex, flags)
+    def SetShowCorrections(self, val):
+        self._show_corrections = val
+    def GetShowCorrections(self):
+        return self._show_corrections
     def get_style(self, group_num):
         return (group_num % 32) + 1
     def DoRegexStyle(self, evt, **kw):
@@ -311,20 +340,103 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
         line_start = 0
 
         #self.StyleClearAll()
+        self.MarkerDeleteAll(RE_MATCH_MARKER)
         style = [STYLE_DEFAULT] * len(line)
+        pmatches = None
+        if self._preferred and self._show_corrections:
+            print 'Correcting'
+            pmatches = self._preferred.finditer(line)
+        def _get_next(match_iter):
+            try:
+                if not match_iter:
+                    raise StopIteration('not really an iterator, you know?')
+                pcurr = match_iter.next()
+                pstart = pcurr.start()
+                pend = pcurr.end()
+                print 'pstart: %s, pend: %s' % (pstart, pend)
+            except StopIteration:
+                pcurr = None
+                pstart = None
+                pend = None
+                print 'no more pmatches'
+            return (pcurr,pstart,pend)
+
+        def __style(start, stop, new_style, mask=0xe0):
+            for i in xrange(start, stop):
+                print "__style(%s, %s, %s, %s)" % (start, stop, new_style, mask)
+                style[i] = new_style | style[i] & mask
+        def __underline(start, stop):
+            __style(start, stop, STYLE_UNDERLINE, 0xff)
+            #FIXME: set appropriate marker
+        def __strikethrough(start, stop):
+            __style(start, stop, STYLE_STRIKETHROUGH, 0xff)
+            #FIXME: set appropriate marker
+
+        matched = False
         for match in self._regex.finditer(line):
+            if not matched:
+                (pcurr, pstart, pend) = _get_next(pmatches)
+                matched = True
+            mstart = match.start()
+            mend = match.end()
+            print 'mstart: %s, mend: %s' % (mstart, mend)
+            print pcurr, pstart, pend
+            curr_line_no = self.GetLineNum(match.start())
+            if not self._show_corrections:
+                print "self.MarkerAdd(%s, %s)" % (curr_line_no, RE_MATCH_MARKER)
+                self.MarkerAdd(curr_line_no, RE_MATCH_MARKER)
+            if pmatches and not pcurr:
+                print 'c: %s, mstart: %s, mend: %s'
+                __strikethrough(mstart, mend)
+            c = True
+            while pmatches and pcurr and c:
+                if mstart == pstart and mend == pend:
+                    print "mstart == pstart and mend == pend"
+                    # Great job! moving on...
+                    c=False
+                    (pcurr, pstart, pend) = _get_next(pmatches)
+                elif mstart > pend:
+                    print "mstart > pend"
+                    # Missed completely, none of this was matched, but it should have been
+                    __underline(pstart, pend)
+                    (pcurr, pstart, pend) = _get_next(pmatches)
+                elif mend < pstart:
+                    print "mend < pstart"
+                    __strikethrough(mstart, mend)
+                    c=False
+                else:
+                    print "else"
+                    # we have some overlap :(
+                    if mstart < pstart:
+                        print "-- mstart < pstart"
+                        __strikethrough(mstart, pstart)
+                    if pstart < mstart:
+                        print "-- pstart < mstart"
+                        __underline(pstart, mstart)
+                    if pend < mend:
+                        print "-- pend < mend"
+                        __strikethrough(pend, mend)
+                    if mend < pend:
+                        print "--mend < pend"
+                        c=False
+                        __underline(mend, pend)
+                    # FIXME: Mark this line accordingly
+                    (pcurr, pstart, pend) = _get_next(pmatches)
             num_groups = len(match.groups())
             for i in range(num_groups+1):
-                for j in range(match.start(i), match.end(i)):
-                    new_style = self.get_style(i)
-                    style[j] = new_style | STYLE_OVERLAP
-                    #if style[j] != STYLE_DEFAULT:
-                    #    style[j] = new_style | STYLE_OVERLAP
-                    #else:
-                    #    style[j] = new_style
+                new_style = self.get_style(i)
+                __style(match.start(i), match.end(i), new_style)
+        if not matched and pmatches:
+            for m in pmatches:
+                __underline(m.start(), m.end())
         self.StartStyling(line_start, 0xff)
         style_str = ''.join(map(chr,style))
         self.SetStyleBytes(len(style), style_str)
+    def GetLineNum( self, pos ):
+        for i in xrange(len(self._text_line_start)):
+            if self._text_line_start[i] > pos:
+                return i-1
+        return len(self._text_line_start)-1
     def OnUpdate(self, evt=None, **kw):
         log(5, "MyRegexMatchCtrl.OnUpdate", "(%s, %s)", (evt, kw) )
         new_text = self.GetText()
@@ -332,9 +444,13 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
             new_text = ''
         if new_text != self._text:
             self._text = new_text
+            self._text_line_start = [0]
+            curr = 0
+            for i in xrange(len(self._text)):
+                if self._text[i] == '\n':
+                    self._text_line_start.append(i+1)
             self._CallHandlers(text=self._text)
         self.DoRegexStyle(None)
-
 
 class MyReplaceTextCtrl(MyStyledTextCtrl):
     def __init__(self, *args, **kw):
