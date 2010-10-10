@@ -50,13 +50,13 @@ STYLE_STRIKETHROUGH = stc.STC_INDIC2_MASK
 STYLE_UNDERLINE_NO = 1
 STYLE_STRIKETHROUGH_NO = 2
 
-max_level = 0
-#max_level = 20
+log_level = 0
+#log_level = 1|2|4|8
 timing = 1
 timing_threshold = 0.1
 
 def log(level, fcn, s, sub=None,):
-    if level <= max_level:
+    if level & log_level:
         if sub:
             s = s % sub
         print fcn+': ', sub
@@ -115,7 +115,7 @@ def style_init():
     INVALID_STYLE = wx.TextAttr('LIGHT BLUE', 'DARK RED', default_font)
 
 def print_style(style):
-    log( 3, 'print_style', ' '.join([style.GetFont(), style.GetTextColour(), style.GetBackgroundColour()]) )
+    log( 8, 'print_style', ' '.join([style.GetFont(), style.GetTextColour(), style.GetBackgroundColour()]) )
 
 class MyROTextCtrl(stc.StyledTextCtrl):
     def __init__(self, *args, **kw):
@@ -127,6 +127,7 @@ class MyROTextCtrl(stc.StyledTextCtrl):
         self.SetText("Forgot to initialize text...")
         self.SetScrollWidth(400)
         self.SetHighlightGuide(0)
+        self.SetMarginWidth(1,0)
     def SetText(self, text):
         self.SetReadOnly(False)
         stc.StyledTextCtrl.SetText(self, text)
@@ -170,10 +171,9 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
         if self.__on_update:
             return # hopefully that wasn't the last one...
         self.__on_update = True
-        log(5, 'MyPatternStyledTextCtrl.OnUpdate', '(%s,%s)', (evt, kw))
+        log(4, 'MyPatternStyledTextCtrl.OnUpdate', '(%s,%s)', (evt, kw))
         if evt:
-            log(10, 'MyPatternStyledTextCtrl.OnUpdate', (evt.IsCommandEvent(),evt.GetEventType(),))
-        wx.Yield()
+            log(16, 'MyPatternStyledTextCtrl.OnUpdate', (evt.IsCommandEvent(),evt.GetEventType(),))
 
         text = self.GetValue()
         if self._text == text:
@@ -286,7 +286,7 @@ class MyReplacePatternStyledTextCtrl(MyPatternStyledTextCtrl):
         if self.__on_update:
             raise Exception("OnUpdate called from OnUpdate?!")
         self.__on_update = True
-        log(5, "MyReplacePatternStyledTextCtrl", "(%s, %s)", (evt, kw) )
+        log(4, "MyReplacePatternStyledTextCtrl", "(%s, %s)", (evt, kw) )
         wx.Yield()
         newtext = self.GetValue()
         if newtext != self._text:
@@ -320,7 +320,7 @@ class MyStyledTextCtrl(wx.stc.StyledTextCtrl):
         self._regex_flags = re.MULTILINE
         self._regex=re.compile(self._regex_text, self._regex_flags)
         self.SetMarginType(0, stc.STC_MARGIN_NUMBER)
-        self.SetMarginWidth(0,22)
+        self.SetMarginWidth(0,30)
         self.SetMarginType(1, stc.STC_MARGIN_SYMBOL)
         self.MarkerDefine(RE_MATCH_MARKER, stc.STC_MARK_ARROW, "GREEN", "BLACK")
         self.MarkerDefine(RE_TOOMUCH_MARKER, stc.STC_MARK_CIRCLEPLUS, "RED", "BLUE")
@@ -337,7 +337,7 @@ class MyStyledTextCtrl(wx.stc.StyledTextCtrl):
         for handler in self._callbacks:
             handler( *args, **kw )
     def SetRegex(self, **kw):
-        log(5, "MyStyledTextCtrl.SetRegex", kw)
+        log(4, "MyStyledTextCtrl.SetRegex", kw)
         recompile = False
         if kw.has_key('flags'):
             flags = kw['flags']
@@ -424,7 +424,7 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
             return (pcurr,pstart,pend)
 
         def __style(start, stop, new_style, mask=0xe0):
-            log(16,'MyRegexMatchCtrl.DoRegexStyle', "__style(%s, %s, %s, %s)", (start, stop, new_style, mask))
+            log(8,'MyRegexMatchCtrl.DoRegexStyle', "__style(%s, %s, %s, %s)", (start, stop, new_style, mask))
             for i in xrange(start, stop):
                 style[i] = new_style | style[i] & mask
         def __underline(start, stop):
@@ -512,7 +512,7 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
                 return i-1
         return len(self._text_line_start)-1
     def _OnUpdate(self, evt=None, **kw):
-            log(5, "MyRegexMatchCtrl._OnUpdate", "(%s, %s)", (evt, kw) )
+            log(4, "MyRegexMatchCtrl._OnUpdate", "(%s, %s)", (evt, kw) )
             new_text = self.GetText()
             if new_text is None:
                 new_text = ''
@@ -523,9 +523,8 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
                 for i in xrange(len(self._text)):
                     if self._text[i] == '\n':
                         self._text_line_start.append(i+1)
-                self._CallHandlers(text=self._text)
+                wx.CallAfter(self._CallHandlers, text=self._text)
             self.DoRegexStyle(None)
-
 
 class MyReplaceTextCtrl(MyStyledTextCtrl):
     def __init__(self, *args, **kw):
@@ -536,26 +535,26 @@ class MyReplaceTextCtrl(MyStyledTextCtrl):
         self._text=''
         self.__on_update = False
     def _OnUpdate(self, evt=None, **kw):
-        log(5, "MyReplaceTextCtrl.OnUpdate", "(%s, %s)", (evt, kw) )
+        log(4, "MyReplaceTextCtrl.OnUpdate", "(%s, %s)", (evt, kw) )
         if evt is not None:
-            log(10, 'MyReplaceTextCtrl.OnUpdate', (evt.IsCommandEvent(),evt.GetEventType(),))
+            log(16, 'MyReplaceTextCtrl.OnUpdate', (evt.IsCommandEvent(),evt.GetEventType(),))
         for i in ('_text','_replace','_regex'):
             if not hasattr(self, i):
-                log(2, 'MyReplaceTextCtrl.OnUpdate', 'Missing %s', i)
+                log(32, 'MyReplaceTextCtrl.OnUpdate', 'Missing %s', i)
                 return
             else:
-                log(100, 'MyReplaceTextCtrl.OnUpdate', '%s: %s', (i, getattr(self,i)) )
+                log(32, 'MyReplaceTextCtrl.OnUpdate', '%s: %s', (i, getattr(self,i)) )
         try:
             new_text = self._regex.sub(self._replace, self._text, )
-            log(200, 'MyReplaceTextCtrl.OnUpdate', 'new_text: %s', new_text)
+            log(256, 'MyReplaceTextCtrl.OnUpdate', 'new_text: %s', new_text)
         except Exception, e:
-            log(200, 'MyReplaceTextCtrl.OnUpdate', e)
+            log(256, 'MyReplaceTextCtrl.OnUpdate', e)
             raise
         self.SetReadOnly(False)
         self.SetText( new_text )
         self.SetReadOnly(True)
     def SetReplace(self, **kw):
-        log(5, "MyReplaceTextCtrl.SetReplace", kw)
+        log(4, "MyReplaceTextCtrl.SetReplace", kw)
         if not kw.has_key('replace'):
             return
         replace = kw['replace']
@@ -563,7 +562,7 @@ class MyReplaceTextCtrl(MyStyledTextCtrl):
             self._replace = replace
             self.OnUpdate(caller='MyReplaceTextCtrl.SetReplace')
     def SetOriginal(self, **kw):
-        log(5, "MyReplaceTextCtrl.SetOriginal", kw)
+        log(4, "MyReplaceTextCtrl.SetOriginal", kw)
         if not kw.has_key('text'):
             return
         text = kw['text']

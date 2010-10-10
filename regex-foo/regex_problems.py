@@ -144,6 +144,7 @@ class PatternMatchingProblemsPane(BasePatternMatchingPane):
         self.correcting_button = wx.ToggleButton(self, -1, "Check Solution", style=wx.BU_EXACTFIT)
         self.hint_button = wx.Button(self, -1, 'Show Hint', style=wx.BU_EXACTFIT)
         self.back = wx.Button(self, -1, "< Previous", style=wx.BU_EXACTFIT)
+        self.back.Disable()
         self.forward = wx.Button(self, -1, "Next >", style=wx.BU_EXACTFIT)
         self.LoadProblem()
     def _GetNavSizer(self):
@@ -185,12 +186,20 @@ class PatternMatchingProblemsPane(BasePatternMatchingPane):
         n = curr + 1
         if n < len(self._problems):
             self.LoadProblem(n)
+            if curr == 0:
+                self.back.Enable()
+            if n == (len(self._problems)-1):
+                self.forward.Disable()
     def PrevProblem(self, evt):
         print 'PrevProblem'
         curr = self._problem_number
         p = curr - 1
         if p >= 0:
             self.LoadProblem(p)
+            if p == 0:
+                self.back.Disable()
+            if curr == (len(self._problems)-1):
+                self.forward.Enable()
     def LoadProblem(self, number = None):
         print 'LoadProblem(%s)' % number
         if number is None:
@@ -199,7 +208,9 @@ class PatternMatchingProblemsPane(BasePatternMatchingPane):
         oldproblem.user_pattern = self.pattern.GetValue()
         problem = self._problems[number]
         self.problem_description.SetText('Problem %d: %s' % (number + 1, problem.description))
-        self.pattern.SetValue(problem.user_pattern)
+        if oldproblem.user_pattern != problem.user_pattern:
+            # It gets unhappy if you set it to its current value :/
+            self.pattern.SetValue(problem.user_pattern)
         self.text.SetPreferred(problem.solution_pattern, problem.flags)
         self.text.SetText(problem.test)
         self.correcting_button.SetValue(False)

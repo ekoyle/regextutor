@@ -57,7 +57,7 @@ def LoadProblems(filename, ProblemObj):
         except:
             print data
             raise
-        print "adding %s" % problem.__dict__
+        #print "adding %s" % problem.__dict__
         problems.append(problem)
     return problems
 
