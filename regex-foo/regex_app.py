@@ -286,19 +286,21 @@ class MyReplacePatternStyledTextCtrl(MyPatternStyledTextCtrl):
         if self.__on_update:
             raise Exception("OnUpdate called from OnUpdate?!")
         self.__on_update = True
-        log(4, "MyReplacePatternStyledTextCtrl", "(%s, %s)", (evt, kw) )
-        wx.Yield()
-        newtext = self.GetValue()
-        if newtext != self._text:
-            self._text = newtext
-            ign = self._pattern_parser.parse(self._text)
-            self._CallHandlers(replace=self._text)
-        if timing:
-            __stop_time = time.time()
-            __time_delta = __stop_time-__start_time
-            if __time_delta > timing_threshold:
-                print 'MyPatternStyledTextCtrl.OnUpdate: ',__stop_time-__start_time
-        self.__on_update = False
+        try:
+            log(4, "MyReplacePatternStyledTextCtrl", "(%s, %s)", (evt, kw) )
+            wx.Yield()
+            newtext = self.GetValue()
+            if newtext != self._text:
+                self._text = newtext
+                ign = self._pattern_parser.parse(self._text)
+                self._CallHandlers(replace=self._text)
+            if timing:
+                __stop_time = time.time()
+                __time_delta = __stop_time-__start_time
+                if __time_delta > timing_threshold:
+                    print 'MyPatternStyledTextCtrl.OnUpdate: ',__stop_time-__start_time
+        finally:
+            self.__on_update = False
 
 RE_MATCH_MARKER = 1
 RE_TOOMUCH_MARKER = 2
@@ -383,7 +385,10 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
         self._show_corrections = None
         self.__on_update = False
     def SetPreferred(self, regex, flags):
-        self._preferred = re.compile(regex, flags)
+        try:
+            self._preferred = re.compile(regex, flags)
+        except:
+            self._preferred = None
     def SetShowCorrections(self, val):
         self._show_corrections = val
         self.OnUpdate()

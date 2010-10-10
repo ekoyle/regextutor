@@ -8,9 +8,9 @@ class ProblemException(Exception):
 
 class PMProblem(object):
     fieldnames = pm_fieldnames
+    user_pattern = ''
     def __init__(self, problem_text):
         self.flags = [] # optional field
-        self.user_pattern = ''
         # hack for the last line
         problem_text = problem_text.rstrip('\n')
         field = None
@@ -26,7 +26,7 @@ class PMProblem(object):
                 field = l[:-1]
                 setattr(self, field, [])
                 continue
-            raise ProblemException("Invalid problem input: line='%s'" % line, problem_text)
+            raise ProblemException("Invalid problem input: line='%s'" % l, problem_text)
         for f in self.fieldnames:
             if not hasattr(self, f):
                 raise ProblemException("Invalid problem input: missing field: %s" % f, problem_text)
@@ -43,8 +43,10 @@ class PMProblem(object):
 
 sr_fieldnames = pm_fieldnames[:]
 sr_fieldnames.append('solution_replacement')
+
 class SRProblem(PMProblem):
     fieldnames = sr_fieldnames
+    user_replace = ''
 
 def LoadProblems(filename, ProblemObj):
     f = open(filename)
@@ -68,6 +70,6 @@ def LoadPMProblems(filename=None):
 
 def LoadSRProblems(filename=None):
     if filename == None:
-        filename = 'pm.dat'
+        filename = 'sr.dat'
     return LoadProblems(filename, SRProblem)
 

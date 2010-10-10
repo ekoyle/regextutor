@@ -12,12 +12,21 @@ import problems
 pm_problem_filename = 'pm.dat'
 sr_problem_filename = 'sr.dat'
 
-class BasePatternMatchingPane(wx.Panel):
+class BasePane(object):
+    def _GetOptionsSizer(self):
+        my_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        my_sizer.Add(wx.StaticText(self, -1, "(Flags)  "), 0, 0, 0)
+        self.pattern_flags.AddToSizer(my_sizer)
+        return my_sizer
+
+class BasePatternMatchingPane(BasePane):
+    pattern = None
+    text = None
+    pattern_flags = None
     def __init__(self, *args, **kw):
-        wx.Panel.__init__(self, *args, **kw)
-        self.pattern = regex_app.MyPatternStyledTextCtrl(self, -1)
         self.text = regex_app.MyRegexMatchCtrl(self, -1)
         self.pattern_flags = regex_app.RECheckboxes(self)
+        self.pattern = regex_app.MyPatternStyledTextCtrl(self, -1)
         self.pattern.AddHandler(self.text.SetRegex)
     def UpdateREFlags(self, evt):
         self.text.SetRegex( flags=self.pattern_flags.GetFlags() )
@@ -53,16 +62,14 @@ class BasePatternMatchingPane(wx.Panel):
         my_sizer.Add(self._GetTextSizer(), 4, wx.EXPAND, 0)
         return my_sizer
 
-class BaseSearchReplacePane(BasePatternMatchingPane):
+class BaseSearchReplacePane(BasePane):
     def __init__(self, *args, **kw):
-        BasePatternMatchingPane.__init__(self, *args, **kw)
         self.replace_pattern = regex_app.MyReplacePatternStyledTextCtrl(self, -1, "")
         self.replace_text = regex_app.MyReplaceTextCtrl(self, -1)
         self.pattern.AddHandler(self.replace_text.SetRegex)
         self.replace_pattern.AddHandler(self.replace_text.SetReplace)
         self.text.AddHandler(self.replace_text.SetOriginal)
     def SetHandlers(self, frame):
-        BasePatternMatchingPane.SetHandlers(self, frame)
         frame.Bind(wx.EVT_TEXT, self.replace_pattern.OnUpdate, self.replace_pattern)
         frame.Bind(wx.EVT_CHAR, self.replace_pattern.OnUpdate, self.replace_pattern)
     # FIXME: is this needed?
@@ -99,8 +106,9 @@ class BaseSearchReplacePane(BasePatternMatchingPane):
         my_sizer.Add(text, 6, wx.EXPAND, 0)
         return my_sizer
 
-class PatternMatchingPane(BasePatternMatchingPane):
+class PatternMatchingPane(BasePatternMatchingPane, wx.Panel):
     def __init__(self, *args, **kw):
+        wx.Panel.__init__(self, *args, **kw)
         BasePatternMatchingPane.__init__(self, *args, **kw)
         self.file_dlg = wx.FileDialog(self, "Choose File", )
         self.load_file_button = wx.Button(self, -1, "load text from file", style=wx.BU_EXACTFIT)
@@ -117,8 +125,10 @@ class PatternMatchingPane(BasePatternMatchingPane):
         sizer.Add(self.load_file_button, 0, 0, 0)
         return sizer
 
-class SearchReplacePane(BaseSearchReplacePane):
+class SearchReplacePane(BaseSearchReplacePane, BasePatternMatchingPane, wx.Panel):
     def __init__(self, *args, **kw):
+        wx.Panel.__init__(self, *args, **kw)
+        BasePatternMatchingPane.__init__(self, *args, **kw)
         BaseSearchReplacePane.__init__(self, *args, **kw)
         self.file_dlg = wx.FileDialog(self, "Choose File", )
         self.load_file_button = wx.Button(self, -1, "load text from file", style=wx.BU_EXACTFIT)
@@ -129,24 +139,26 @@ class SearchReplacePane(BaseSearchReplacePane):
             self.text.LoadFile(os.path.join(fdir, fname) )
     def SetHandlers(self, frame):
         BaseSearchReplacePane.SetHandlers(self, frame)
+        BasePatternMatchingPane.SetHandlers(self, frame)
         frame.Bind(wx.EVT_BUTTON, self.FileOpen, self.load_file_button)
     def _GetOptionsSizer(self):
         sizer = BaseSearchReplacePane._GetOptionsSizer(self)
         sizer.Add(self.load_file_button, 0, 0, 0)
         return sizer
 
-class PatternMatchingProblemsPane(BasePatternMatchingPane):
+class BasePatternMatchingProblemsPane(BasePatternMatchingPane):
     def __init__(self, *args, **kw):
         BasePatternMatchingPane.__init__(self, *args, **kw)
-        self._problem_number = 0
-        self._problems = problems.LoadPMProblems()
-        self.problem_description = regex_app.MyROTextCtrl(self)
         self.correcting_button = wx.ToggleButton(self, -1, "Check Solution", style=wx.BU_EXACTFIT)
         self.hint_button = wx.Button(self, -1, 'Show Hint', style=wx.BU_EXACTFIT)
         self.back = wx.Button(self, -1, "< Previous", style=wx.BU_EXACTFIT)
-        self.back.Disable()
         self.forward = wx.Button(self, -1, "Next >", style=wx.BU_EXACTFIT)
-        self.LoadProblem()
+        self.problem_description = regex_app.MyROTextCtrl(self)
+        self._problem_number = 0
+        self._load_problems()
+        self.back.Disable()
+    def _load_problems(self):
+        self._problems = problems.LoadPMProblems()
     def _GetNavSizer(self):
         my_sizer = wx.BoxSizer(wx.HORIZONTAL)
         my_sizer.Add(self.correcting_button, 0, 0, 0)
@@ -207,6 +219,7 @@ class PatternMatchingProblemsPane(BasePatternMatchingPane):
         oldproblem = self._problems[self._problem_number]
         oldproblem.user_pattern = self.pattern.GetValue()
         problem = self._problems[number]
+        self._LoadProblem(oldproblem, problem)
         self.problem_description.SetText('Problem %d: %s' % (number + 1, problem.description))
         if oldproblem.user_pattern != problem.user_pattern:
             # It gets unhappy if you set it to its current value :/
@@ -216,6 +229,29 @@ class PatternMatchingProblemsPane(BasePatternMatchingPane):
         self.correcting_button.SetValue(False)
         self.ToggleCorrecting(None)
         self._problem_number = number
+        return oldproblem, problem
+    def _LoadProblem(self, oldproblem, newproblem):
+        pass
+
+class PatternMatchingProblemsPane(BasePatternMatchingProblemsPane, wx.Panel):
+    def __init__(self, *args, **kw):
+        wx.Panel.__init__(self, *args, **kw)
+        BasePatternMatchingProblemsPane.__init__(self, *args, **kw)
+
+class SearchReplaceProblemsPane(BaseSearchReplacePane, BasePatternMatchingProblemsPane, wx.Panel):
+    def __init__(self, *args, **kw):
+        wx.Panel.__init__(self, *args, **kw)
+        BasePatternMatchingProblemsPane.__init__(self, *args, **kw)
+        BaseSearchReplacePane.__init__(self, *args, **kw)
+    def _load_problems(self):
+        self._problems = problems.LoadSRProblems()
+    def _LoadProblem(self, oldproblem, problem):
+        oldproblem.user_replace = self.replace_pattern.GetValue()
+        if oldproblem.user_replace != problem.user_replace:
+            self.replace_pattern.SetValue(problem.user_replace)
+    def SetHandlers(self, frame):
+        BaseSearchReplacePane.SetHandlers(self, frame)
+        BasePatternMatchingProblemsPane.SetHandlers(self, frame)
 
 class MainFrame(wx.Frame):
     def __init__(self, *args, **kwds):
@@ -229,26 +265,27 @@ class MainFrame(wx.Frame):
         self.notebook = wx.Notebook(self)
 
         self.pm_problem_pane = PatternMatchingProblemsPane(self.notebook, -1)
+        self.pm_problem_pane.LoadProblem()
         self.pm_problem_pane.SetHandlers(self)
         self.pm_problem_pane.SetSizer(self.pm_problem_pane.GetSizer())
-
-        #self.pm_problem_pane.pattern.SetValue(r'([a-z])[a-z]\\1')
-        #self.pm_problem_pane.text.SetPreferred(r'([a-z])[a-z]\1', re.MULTILINE)
-        #txt = "abc\nabcb\nab bc\na a\nwz\\1\n"
-        #self.pm_problem_pane.text.SetText(txt)
-        #self.pm_problem_pane.text.SetShowCorrections(True)
 
         self.pm_pane = PatternMatchingPane(self.notebook, -1)
         self.pm_pane.SetHandlers(self)
         self.pm_pane.SetSizer(self.pm_pane.GetSizer())
 
+        self.sr_problem_pane = SearchReplaceProblemsPane(self.notebook, -1)
+        self.sr_problem_pane.LoadProblem()
+        self.sr_problem_pane.SetHandlers(self)
+        self.sr_problem_pane.SetSizer(self.sr_problem_pane.GetSizer())
+
         self.sr_pane = SearchReplacePane(self.notebook, -1)
         self.sr_pane.SetHandlers(self)
         self.sr_pane.SetSizer(self.sr_pane.GetSizer())
 
-        self.notebook.AddPage(self.pm_problem_pane, "Pattern Matching Problems")
         self.notebook.AddPage(self.pm_pane, "Pattern Matching")
+        self.notebook.AddPage(self.pm_problem_pane, "PM Problems")
         self.notebook.AddPage(self.sr_pane, "Search and Replace")
+        self.notebook.AddPage(self.sr_problem_pane, "SR Problems")
 
         main_sizer = wx.BoxSizer()
         main_sizer.Add(self.notebook, 1, wx.EXPAND, 0)
