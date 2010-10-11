@@ -67,8 +67,7 @@ class BaseSearchReplacePane(BasePane):
         self.replace_pattern = regex_app.MyReplacePatternStyledTextCtrl(self, -1, "")
         self.replace_text = regex_app.MyReplaceTextCtrl(self, -1)
         self.pattern.AddHandler(self.replace_text.SetRegex)
-        self.replace_pattern.AddHandler(self.replace_text.SetReplace)
-        self.text.AddHandler(self.replace_text.SetOriginal)
+        self.replace_pattern.AddHandler(self.replace_text.SetValues)
     def SetHandlers(self, frame):
         frame.Bind(wx.EVT_TEXT, self.replace_pattern.OnUpdate, self.replace_pattern)
         frame.Bind(wx.EVT_CHAR, self.replace_pattern.OnUpdate, self.replace_pattern)

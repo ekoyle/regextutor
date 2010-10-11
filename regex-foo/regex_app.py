@@ -402,6 +402,7 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
         MyStyledTextCtrl.__init__(self, *args, **kw)
         self.SetCaretForeground('WHITE')
         self._preferred = None
+        self._re_passed_test = False
         self._show_corrections = None
         self.__on_update = False
     def SetPreferred(self, regex, flags):
@@ -423,6 +424,8 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
 
         line = self._text
         line_start = 0
+
+        self._re_passed_test = True # innocent until proven guilty
 
         #self.StyleClearAll()
         wx.CallAfter(self.MarkerDeleteAll,RE_MATCH_MARKER)
@@ -455,11 +458,11 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
         def __underline(start, stop):
             __style(start, stop, STYLE_UNDERLINE, 0xff)
             wx.CallAfter(self.MarkerAdd,self.GetLineNum(start), RE_MISSED_MARKER)
-            #FIXME: set appropriate marker
+            self._re_passed_test = False
         def __strikethrough(start, stop):
             __style(start, stop, STYLE_STRIKETHROUGH, 0xff)
             wx.CallAfter(self.MarkerAdd,self.GetLineNum(start), RE_TOOMUCH_MARKER)
-            #FIXME: set appropriate marker
+            self._re_passed_test = False
 
         matched = False
         for match in self._regex.finditer(line):
@@ -531,6 +534,7 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
         wx.CallAfter(self.StartStyling, line_start, 0xff)
         style_str = ''.join(map(chr,style))
         wx.CallAfter(self.SetStyleBytes, len(style), style_str)
+        wx.CallAfter(self._CallHandlers, re_passed_test=self._re_passed_test)
     def GetLineNum( self, pos ):
         for i in xrange(len(self._text_line_start)):
             if self._text_line_start[i] > pos:
@@ -573,27 +577,35 @@ class MyReplaceTextCtrl(MyStyledTextCtrl):
             new_text = self._regex.sub(self._replace, self._text, )
             log(256, 'MyReplaceTextCtrl.OnUpdate', 'new_text: %s', new_text)
         except Exception, e:
-            log(256, 'MyReplaceTextCtrl.OnUpdate', e)
+            log(1, 'MyReplaceTextCtrl.OnUpdate', e)
             raise
         self.SetReadOnly(False)
         self.SetText( new_text )
         self.SetReadOnly(True)
-    def SetReplace(self, **kw):
-        log(4, "MyReplaceTextCtrl.SetReplace", kw)
-        if not kw.has_key('replace'):
-            return
-        replace = kw['replace']
-        if self._replace != replace:
-            self._replace = replace
-            self.OnUpdate(caller='MyReplaceTextCtrl.SetReplace')
-    def SetOriginal(self, **kw):
-        log(4, "MyReplaceTextCtrl.SetOriginal", kw)
-        if not kw.has_key('text'):
-            return
-        text = kw['text']
-        if self._text != text:
-            self._text = text
-            self.OnUpdate(caller='MyReplaceTextCtrl.SetOriginal')
+    def SetValues(self, **kw):
+        log(4, "MyReplaceTextCtrl.SetValues", kw)
+        updated = False
+        if kw.has_key('replace'):
+            replace = kw['replace']
+            if self._replace != replace:
+                self._replace = replace
+                updated=True
+        if kw.has_key('text'):
+            text = kw['text']
+            if self._text != text:
+                self._text = text
+                updated=True
+        if kw.has_key('re_test_passed'):
+            passed = kw['re_test_passed']
+            if self._re_test_passed != passed:
+                self._re_test_passed = passed
+                updated=True
+        if updated:
+            self.OnUpdate(caller='MyReplaceTextCtrl.SetValue')
+    def SetPreferredReplace(self, preferred):
+        if preferred != self._replace_preferred:
+            self._replace_preferred = preferred
+            self.OnUpdate(caller='MyReplaceTextCtrl.SetPreferredReplace')
 
 class MyReChoice(wx.Choice):
     def SetTextCtrl(self, ctrl):
