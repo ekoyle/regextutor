@@ -50,16 +50,20 @@ STYLE_STRIKETHROUGH = stc.STC_INDIC2_MASK
 STYLE_UNDERLINE_NO = 1
 STYLE_STRIKETHROUGH_NO = 2
 
-log_level = 0
+log_level = 1
 #log_level = 1|2|4|8
 timing = 1
 timing_threshold = 0.1
 
 def log(level, fcn, s, sub=None,):
-    if level & log_level:
-        if sub:
-            s = s % sub
-        print fcn+': ', sub
+    try:
+        if level & log_level:
+            if sub:
+                s = s % sub
+            print fcn+': ', s
+    except Exception, e:
+        print e
+        print level, fcn, s, sub
 
 class MyTextStyle(object):
     # this will be slow, but I don't really mind much
@@ -68,19 +72,27 @@ class MyTextStyle(object):
         self.__data = []
     def set_style(self, start, stop, style):
         d_match = None
+        log(8, "MyTextStyle.set_style", "start: %s, stop: %s", (start, stop))
+        print_style(style)
         # Try to find the most-specific current style
         for i in range(len(self.__data)):
             d = self.__data[i]
             d_start, d_stop, d_style = d
-            if start >= d_start and start < d_stop:
+            log(8, "MyTextStyle.set_style", "d_start: %s, d_stop: %s", (d_start, d_stop) )
+            if start >= d_start and start <= d_stop:
+                print d_start, start, stop, d_stop
                 # sub-range?
                 if d_stop < stop:
-                    raise Exception('attempted to style across style boundaries -- bad')
+                    e = Exception('attempted to style across style boundaries -- bad')
+                    print e
+                    raise e
                 d_match = i
                 break
-        if d_match:
+        if d_match is not None:
+            log(8, "MyTextStyle.set_style", "d_match: %s" % d_match)
             self.__data.insert( d_match, (start, stop, style) )
         else:
+            log(8, "MyTextStyle.set_style", "!d_match")
             self.__data.append( (start, stop, style) )
     def get_style(self, pos):
         for i in range(len(self.__data)):
@@ -115,7 +127,11 @@ def style_init():
     INVALID_STYLE = wx.TextAttr('LIGHT BLUE', 'DARK RED', default_font)
 
 def print_style(style):
-    log( 8, 'print_style', ' '.join([style.GetFont(), style.GetTextColour(), style.GetBackgroundColour()]) )
+    try:
+        log( 8, 'print_style', 'Font: %s Color: %s BG Color: %s', (style.GetFont(), style.GetTextColour(), style.GetBackgroundColour()) )
+    except Exception, e:
+        print e
+        raise
 
 class MyROTextCtrl(stc.StyledTextCtrl):
     def __init__(self, *args, **kw):
@@ -352,7 +368,11 @@ class MyStyledTextCtrl(wx.stc.StyledTextCtrl):
             regex_text = self._regex_text
         if recompile or self._regex_text != regex_text:
             self._regex_text = regex_text
-            self._regex = re.compile(self._regex_text, self._regex_flags)
+            try:
+                self._regex = re.compile(self._regex_text, self._regex_flags)
+            except:
+                log(1, "MyPatternStyledTextCtrl.SetRegex", "Invalid RE: %s" % self._regex)
+                self._regex = re.compile("\b\B")
             self._CallHandlers( regex=self._regex, regex_text = self._regex_text )
             self.OnUpdate(caller='MyStyledTextCtrl.SetRegex')
     def OnUpdate(self, evt=None, **kw):
