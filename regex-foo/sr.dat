@@ -1,0 +1,88 @@
+description:
+ Replace upper-case letters with '***'.
+hint:
+ use a character set
+solution_pattern:
+ [A-Z]
+solution_replacement:
+ ***
+test:
+ A
+ abcdefgh
+ aXc
+ 12345
+ acdE
+ ABCDEFGHIJKLMNOPQRSTUVWXYZ
+ abcdefghijklmnopqrstuvwxyz
+ 1234567890[]/=	',-;
+
+description:
+ Duplicate a lower-case letter at the beginning of a line
+hint:
+ use a backreference
+flags:
+ MULTILINE
+solution_pattern:
+ ^[a-z]
+solution_replacement:
+ \0\0
+test:
+ bcdefg
+ Abc
+ x
+ 1abc
+ x123!
+
+description:
+ Take a lowercase three letter palindrome and replace the outside letters with the inside letter and vice-versa
+hint:
+ capture groups and use backreferences
+solution_pattern:
+ \b([a-z])([a-z])\1\b
+solution_replacement:
+ \2\1\2
+test:
+ aba bab 121
+ 1a1 b2b
+ dud fud mum mummy
+ I hate writing these...
+
+description:
+ Change re-order the timestamps in following log snippet to: time, day, month in the following log snippet
+hint:
+ Are you using 24-hour time?
+solution_pattern:
+ ^([A-Za-Z]+) ( ?[0-9]) ([0-9:]+)
+solution_replacement:
+ \3 \2 \1
+flags:
+ MULTILINE
+test:
+ Sep  5 08:04:01 black CRON[22713]: pam_unix(cron:session): session opened for user root by (uid=0)
+ Sep  5 12:33:01 black CRON[31497]: pam_unix(cron:session): session opened for user root by (uid=0)
+ Sep  5 12:33:01 black CRON[31497]: pam_unix(cron:session): session closed for user root
+ Sep  6 15:44:25 black sshd[23171]: Failed password for invalid user tina from 202.101.43.160 port 42772 ssh2
+ Sep  6 15:44:28 black sshd[23178]: Failed password for root from 222.91.160.63 port 53482 ssh2
+ Sep 10 00:18:53 black kernel: [713112.073016] IN=eth0 OUT= MAC=00:21:97:df:d2:14:00:01:5c:32:2c:81:08:00 SRC=121.141.27.22 DST=24.10.160.28 LEN=40 TOS=0x00 PREC=0x20 TTL=107 ID=256 PROTO=TCP SPT=6000 DPT=3389 WINDOW=16384 RES=0x00 SYN URGP=0
+ Sep 10 01:02:06 black kernel: [715704.558587] IN=eth0 OUT= MAC=00:21:97:df:d2:14:00:01:5c:32:2c:81:08:00 SRC=24.41.42.202 DST=24.10.160.28 LEN=48 TOS=0x00 PREC=0x20 TTL=118 ID=464 DF PROTO=TCP SPT=1061 DPT=52253 WINDOW=16384 RES=0x00 SYN URGP=0
+ Sep 10 01:02:06 black kernel: [715704.566240] IN=eth0 OUT= MAC=00:21:97:df:d2:14:00:01:5c:32:2c:81:08:00 SRC=24.41.42.202 DST=24.10.160.28 LEN=47 TOS=0x00 PREC=0x20 TTL=118 ID=467 PROTO=UDP SPT=20215 DPT=52253 LEN=27
+ Sep 10 01:02:09 black kernel: [715707.558372] IN=eth0 OUT= MAC=00:21:97:df:d2:14:00:01:5c:32:2c:81:08:00 SRC=24.41.42.202 DST=24.10.160.28 LEN=48 TOS=0x00 PREC=0x20 TTL=118 ID=469 DF PROTO=TCP SPT=1061 DPT=52253 WINDOW=16384 RES=0x00 SYN URGP=0
+ Oct  7 20:36:10 black sshd[1908]: Failed password for root from 89.107.226.46 port 11736 ssh2
+ Oct  7 20:36:14 black sshd[1910]: Failed password for root from 89.107.226.46 port 12012 ssh2
+ Oct  7 20:36:19 black sshd[1912]: Failed password for root from 89.107.226.46 port 42341 ssh2
+ Oct  8 11:07:05 black sshd[13282]: Failed password for invalid user tester from 195.158.12.102 port 52787 ssh2
+ Oct  8 11:07:09 black sshd[13290]: Failed password for invalid user testing from 195.158.12.102 port 53010 ssh2
+ Oct  8 12:16:01 black CRON[13843]: pam_unix(cron:session): session opened for user root by (uid=0)
+ Oct  8 12:16:01 black CRON[13843]: pam_unix(cron:session): session closed for user root
+ Oct  8 13:59:01 black CRON[14611]: pam_unix(cron:session): session opened for user root by (uid=0)
+ Oct  8 13:59:01 black CRON[14611]: pam_unix(cron:session): session closed for user root
+ Oct  9 03:10:47 black sshd[20887]: Failed password for root from 41.78.77.77 port 54532 ssh2
+ Oct  9 03:10:52 black sshd[20889]: Failed password for root from 41.78.77.77 port 55066 ssh2
+ Oct  9 05:49:55 black sshd[22865]: Failed password for invalid user dev from 195.66.191.75 port 34343 ssh2
+ Oct  9 05:50:06 black sshd[22877]: Failed password for invalid user kylix from 195.66.191.75 port 44349 ssh2
+ Oct  9 05:50:10 black sshd[22879]: Failed password for root from 195.66.191.75 port 44525 ssh2
+ Oct  9 05:50:14 black sshd[22881]: Failed password for root from 195.66.191.75 port 44708 ssh2
+ Oct  9 13:59:01 black CRON[30729]: pam_unix(cron:session): session opened for user root by (uid=0)
+ Oct  9 13:59:01 black CRON[30729]: pam_unix(cron:session): session closed for user root
+ Oct  9 14:19:29 black sshd[30906]: Failed password for root from 77.43.79.254 port 53539 ssh2
+ Oct  9 14:19:33 black sshd[30908]: Failed password for root from 77.43.79.254 port 53890 ssh2
