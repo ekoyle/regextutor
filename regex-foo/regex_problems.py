@@ -38,7 +38,7 @@ class BasePatternMatchingPane(BasePane):
     def _GetPatternSizer(self):
         my_sizer = wx.BoxSizer(wx.VERTICAL)
         my_sizer.Add(wx.StaticText(self, -1, "Search Pattern"), 0, 0, 0)
-        my_sizer.Add(self.pattern, 0, wx.EXPAND, 0)
+        my_sizer.Add(self.pattern, 1, wx.EXPAND, 0)
         return my_sizer
     def _GetOptionsSizer(self):
         my_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -48,7 +48,7 @@ class BasePatternMatchingPane(BasePane):
     def _GetTextSizer(self):
         my_sizer=wx.BoxSizer(wx.VERTICAL)
         my_sizer.Add(wx.StaticText(self, -1, "Matched Text"), 0, 0, 0)
-        my_sizer.Add(self.text, 3, wx.EXPAND, 0)
+        my_sizer.Add(self.text, 1, wx.EXPAND, 0)
         return my_sizer
     def _GetTopSizer(self):
         return None
@@ -56,10 +56,10 @@ class BasePatternMatchingPane(BasePane):
         my_sizer = wx.BoxSizer(wx.VERTICAL)
         x = self._GetTopSizer()
         if x:
-            my_sizer.Add(x, 0, wx.EXPAND, 0)
+            my_sizer.Add(x, 1, wx.EXPAND, 0)
         my_sizer.Add(self._GetPatternSizer(), 1, wx.EXPAND, 0)
         my_sizer.Add(self._GetOptionsSizer(), 0, wx.EXPAND, 0)
-        my_sizer.Add(self._GetTextSizer(), 4, wx.EXPAND, 0)
+        my_sizer.Add(self._GetTextSizer(), 2, wx.EXPAND, 0)
         return my_sizer
 
 class BaseSearchReplacePane(BasePane):
@@ -68,6 +68,7 @@ class BaseSearchReplacePane(BasePane):
         self.replace_text = regex_app.MyReplaceTextCtrl(self, -1)
         self.pattern.AddHandler(self.replace_text.SetRegex)
         self.replace_pattern.AddHandler(self.replace_text.SetValues)
+        self.text.AddHandler(self.replace_text.SetValues)
     def SetHandlers(self, frame):
         frame.Bind(wx.EVT_TEXT, self.replace_pattern.OnUpdate, self.replace_pattern)
         frame.Bind(wx.EVT_CHAR, self.replace_pattern.OnUpdate, self.replace_pattern)
@@ -78,12 +79,12 @@ class BaseSearchReplacePane(BasePane):
     def _GetReplacePatternSizer(self):
         my_sizer = wx.BoxSizer(wx.VERTICAL)
         my_sizer.Add(wx.StaticText(self, -1, "Replace with"), 0, 0, 0)
-        my_sizer.Add(self.replace_pattern, 0, wx.EXPAND, 0)
+        my_sizer.Add(self.replace_pattern, 1, wx.EXPAND, 0)
         return my_sizer
     def _GetReplaceTextSizer(self):
         my_sizer=wx.BoxSizer(wx.VERTICAL)
-        my_sizer.Add(wx.StaticText(self, -1, "Matched Text"), 0, 0, 0)
-        my_sizer.Add(self.replace_text, 3, wx.EXPAND, 0)
+        my_sizer.Add(wx.StaticText(self, -1, "Replaced Text"), 0, 0, 0)
+        my_sizer.Add(self.replace_text, 2, wx.EXPAND, 0)
         return my_sizer
     def GetSizer(self):
         my_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -102,7 +103,7 @@ class BaseSearchReplacePane(BasePane):
         
         my_sizer.Add(patterns, 1, wx.EXPAND, 0)
         my_sizer.Add(self._GetOptionsSizer(), 0, 0, 0)
-        my_sizer.Add(text, 6, wx.EXPAND, 0)
+        my_sizer.Add(text, 2, wx.EXPAND, 0)
         return my_sizer
 
 class PatternMatchingPane(BasePatternMatchingPane, wx.Panel):

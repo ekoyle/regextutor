@@ -50,8 +50,8 @@ STYLE_STRIKETHROUGH = stc.STC_INDIC2_MASK
 STYLE_UNDERLINE_NO = 1
 STYLE_STRIKETHROUGH_NO = 2
 
-log_level = 1
-#log_level = 1|2|4|8
+#log_level = 1
+log_level = 1|2|4|8
 timing = 1
 timing_threshold = 0.1
 
@@ -594,6 +594,11 @@ class MyReplaceTextCtrl(MyStyledTextCtrl):
             text = kw['text']
             if self._text != text:
                 self._text = text
+                updated=True
+        if kw.has_key('regex'):
+            regex = kw['regex']
+            if self._regex != regex:
+                self._regex = regex
                 updated=True
         if kw.has_key('re_test_passed'):
             passed = kw['re_test_passed']
