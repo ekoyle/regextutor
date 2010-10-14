@@ -1,5 +1,28 @@
 description:
- an upper-case letter
+ match the string 'abc' anywhere it appears (without quotes)
+hint:
+ most letters, numbers, and not otherwise-special characters match themselves
+solution_pattern:
+ abc
+test:
+ abcdefghijklmnopqrstuvwxyz
+ ab cdefg abc babcd
+ not sure what else to try here... no, this is not a trick question
+
+description:
+ match the letter 'a' zero or more times followed by 'bc'
+solution_pattern:
+ a*bc
+hint:
+ '*' (star/asterisk/whatever you call it) matches the preceding element zero or more times
+test:
+ abcdefghijklmnopqrstuvwxyz
+ ab cdefg abc babcd
+ a bcd aaabc aaaaabc
+ not sure what else to try here... no, this is not a trick question
+
+description:
+ match an upper-case letter
 hint:
  use a character set
 solution_pattern:
@@ -15,7 +38,7 @@ test:
  1234567890[]/=	',-;
 
 description:
- a lower-case letter at the beginning of a line
+ match a lower-case letter at the beginning of a line
 hint:
  use an anchor
 flags:
@@ -30,7 +53,7 @@ test:
  x123!
 
 description:
- a group of letters optionally followed by numbers
+ match a group of letters optionally followed by numbers
 hint:
  one or more letters followed by zero or more numbers
 solution_pattern:
@@ -43,7 +66,7 @@ test:
  abc123
 
 description:
- double letters (of the same case)
+ match double letters (of the same case)
 hint:
  use a backreference
 solution_pattern:
@@ -56,7 +79,7 @@ test:
  112233
 
 description:
- a 'word' of letters
+ match a 'word' of letters
 hint:
  use '\b' to match a word boundary
 solution_pattern:
@@ -69,7 +92,7 @@ test:
  abc1 2defg
 
 description:
- a lowercase three letter palindrome (word that is the same forward or backward)
+ match a lowercase three letter palindrome (word that is the same forward or backward)
 hint:
  capture a group and use a backreference
 solution_pattern:
@@ -81,7 +104,7 @@ test:
  I hate writing these...
 
 description:
- a lowercase palindrome that is either three or four letters
+ match a lowercase palindrome that is either three or four letters
 hint:
  make an optional backreference...
 solution_pattern:
@@ -125,7 +148,7 @@ test:
  a1.1.1.1 1.1.1.1b
 
 description:
- Match any timestamps between 11 am and 2 pm on Oct 8 or Oct 9in the following log snippet
+ match any timestamps between 11 am and 2 pm on Oct 8 or Oct 9in the following log snippet
 hint:
  Are you using 24-hour time?
 solution_pattern:

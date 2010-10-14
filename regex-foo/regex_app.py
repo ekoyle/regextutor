@@ -50,8 +50,8 @@ STYLE_STRIKETHROUGH = stc.STC_INDIC2_MASK
 STYLE_UNDERLINE_NO = 1
 STYLE_STRIKETHROUGH_NO = 2
 
-#log_level = 1
-log_level = 1|2|4|8
+log_level = 1
+#log_level = 1|2|4|8
 timing = 1
 timing_threshold = 0.1
 
@@ -192,12 +192,14 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
             log(16, 'MyPatternStyledTextCtrl.OnUpdate', (evt.IsCommandEvent(),evt.GetEventType(),))
 
         text = self.GetValue()
+        if not text:
+            text = ''
         if self._text == text:
             return # nothing changed
         self._text = text
         # do some color foo
         try:
-            ign = self._re_parser.parse(self._text)
+             self._re_parser.parse(self._text)
         except:
             pass
         regex = self.ConvertRegex(self._text)
@@ -579,9 +581,12 @@ class MyReplaceTextCtrl(MyStyledTextCtrl):
         except Exception, e:
             log(1, 'MyReplaceTextCtrl.OnUpdate', e)
             raise
-        self.SetReadOnly(False)
-        self.SetText( new_text )
-        self.SetReadOnly(True)
+        #self.SetReadOnly(False)
+        #self.SetText( new_text )
+        #self.SetReadOnly(True)
+        wx.CallAfter(self.SetReadOnly,False)
+        wx.CallAfter(self.SetText,new_text)
+        wx.CallAfter(self.SetReadOnly,True)
     def SetValues(self, **kw):
         log(4, "MyReplaceTextCtrl.SetValues", kw)
         updated = False
