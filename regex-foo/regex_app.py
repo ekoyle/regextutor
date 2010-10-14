@@ -80,7 +80,7 @@ class MyTextStyle(object):
             d_start, d_stop, d_style = d
             log(8, "MyTextStyle.set_style", "d_start: %s, d_stop: %s", (d_start, d_stop) )
             if start >= d_start and start <= d_stop:
-                print d_start, start, stop, d_stop
+                #print d_start, start, stop, d_stop
                 # sub-range?
                 if d_stop < stop:
                     e = Exception('attempted to style across style boundaries -- bad')
@@ -467,6 +467,7 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
             self._re_passed_test = False
 
         matched = False
+        m_handled_to = 0
         for match in self._regex.finditer(line):
             if not matched:
                 (pcurr, pstart, pend) = _get_next(pmatches)
@@ -480,57 +481,58 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
                 #print "self.MarkerAdd(%s, %s)" % (curr_line_no, RE_MATCH_MARKER)
                 wx.CallAfter(self.MarkerAdd,curr_line_no, RE_MATCH_MARKER)
             #print '_show_corrections: %s, mstart: %s, mend: %s' % (self._show_corrections, mstart, mend)
-            m_handled = False
             while pmatches and pcurr:
                 if mstart == pstart and mend == pend:
-                    #print "mstart == pstart and mend == pend"
+                    #print "mstart == pstart and mend == pend", mstart, mend, pstart, pend
                     # Great job! moving on...
-                    m_handled = True
+                    m_handled_to = mend
                     (pcurr, pstart, pend) = _get_next(pmatches)
                     break
                 elif mstart > pend:
-                    #print "mstart > pend"
+                    #print "mstart > pend", mstart, mend, pstart, pend
                     # Missed completely, none of this was matched, but it should have been
-                    __underline(pstart, pend)
+                    __underline(max(pstart,m_handled_to), pend)
                 elif mend < pstart:
-                    #print "mend < pstart"
-                    __strikethrough(mstart, mend)
-                    m_handled = True
+                    if m_handled_to < mend:
+                        #print "mend < pstart", mstart, mend, pstart, pend
+                        __strikethrough(max(mstart,m_handled_to), mend)
+                    m_handled_to = mend
                     break
                 else:
-                    #print "else"
+                    #print "else", mstart, mend, pstart, pend
                     # we have some overlap :(
                     if mstart < pstart:
-                        #print "-- mstart < pstart"
-                        __strikethrough(mstart, pstart)
+                        #print "-- mstart < pstart", mstart, mend, pstart, pend
+                        __strikethrough(max(mstart,m_handled_to), pstart)
+                        m_handled_to = pstart
                     if pstart < mstart:
-                        #print "-- pstart < mstart"
+                        #print "-- pstart < mstart", mstart, mend, pstart, pend
                         __underline(pstart, mstart)
                     if pend < mend:
-                        if pstart >= mstart:
-                            m_handled = True
-                        #print "-- pend < mend"
-                        __strikethrough(pend, mend)
+                        m_handled_to = mend
+                        #print "-- pend < mend", mstart, mend, pstart, pend
+                        __strikethrough(pend, max(m_handled_to,mend))
                     if mend < pend:
-                        #print "--mend < pend"
-                        m_handled = True
-                        __underline(mend, pend)
+                        #print "--mend < pend", mstart, mend, pstart, pend
+                        m_handled_to = mend
+                        __underline(max(m_handled_to,mend), pend)
                         break
                     elif mend == pend:
-                        #print "--mend == pend"
-                        m_handled = True
+                        #print "--mend == pend", mstart, mend, pstart, pend
+                        m_handled_to = mend
                         (pcurr, pstart, pend) = _get_next(pmatches)
                         break
                     # FIXME: Mark this line accordingly
                 (pcurr, pstart, pend) = _get_next(pmatches)
-            if self._show_corrections and not pcurr and not m_handled:
-                #print "self._show_corrections: %s pcurr: %s m_handled: %s" % (self._show_corrections,pcurr, m_handled)
-                __strikethrough(mstart, mend)
+            if self._show_corrections and not pcurr and m_handled_to < mend:
+                #print "self._show_corrections: %s pcurr: %s m_handled_to: %s" % (self._show_corrections,pcurr, m_handled_to)
+                __strikethrough(max(m_handled_to,mstart), mend)
             num_groups = len(match.groups())
             for i in range(num_groups+1):
                 new_style = self.get_style(i)
                 __style(match.start(i), match.end(i), new_style)
         if not matched and pmatches:
+            #print '!matched and pmatches', mstart, mend, pstart, pend
             for m in pmatches:
                 __underline(m.start(), m.end())
         wx.CallAfter(self.StartStyling, line_start, 0xff)
