@@ -1,5 +1,4 @@
 import pyparsing as pp
-import types
 
 pp.ParserElement.setDefaultWhitespaceChars("\r\n")
 

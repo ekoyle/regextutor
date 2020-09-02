@@ -5,7 +5,6 @@
 import wx
 import re
 import re_parse
-import os
 
 import time
 
@@ -28,7 +27,18 @@ group_color_names = [
     "ORANGE RED",
     "VIOLET",
     "VIOLET RED",
-    # Valid colors are: 'AQUAMARINE', 'BLACK', 'BLUE', 'BLUE VIOLET', 'BROWN', 'CADET BLUE', 'CORAL', 'CORNFLOWER BLUE', 'CYAN', 'DARK GREY', 'DARK GREEN', 'DARK OLIVE GREEN', 'DARK ORCHID', 'DARK SLATE BLUE', 'DARK SLATE GREY', 'DARK TURQUOISE', 'DIM GREY', 'FIREBRICK', 'FOREST GREEN', 'GOLD', 'GOLDENROD', 'GREY', 'GREEN', 'GREEN YELLOW', 'INDIAN RED', 'KHAKI', 'LIGHT BLUE', 'LIGHT GREY', 'LIGHT STEEL BLUE', 'LIME GREEN', 'MAGENTA', 'MAROON', 'MEDIUM AQUAMARINE', 'MEDIUM BLUE', 'MEDIUM FOREST GREEN', 'MEDIUM GOLDENROD', 'MEDIUM ORCHID', 'MEDIUM SEA GREEN', 'MEDIUM SLATE BLUE', 'MEDIUM SPRING GREEN', 'MEDIUM TURQUOISE', 'MEDIUM VIOLET RED', 'MIDNIGHT BLUE', 'NAVY', 'ORANGE', 'ORANGE RED', 'ORCHID', 'PALE GREEN', 'PINK', 'PLUM', 'PURPLE', 'RED', 'SALMON', 'SEA GREEN', 'SIENNA', 'SKY BLUE', 'SLATE BLUE', 'SPRING GREEN', 'STEEL BLUE', 'TAN', 'THISTLE', 'TURQUOISE', 'VIOLET', 'VIOLET RED', 'WHEAT', 'WHITE', 'YELLOW', 'YELLOW GREEN',
+    # Valid colors are: 'AQUAMARINE', 'BLACK', 'BLUE', 'BLUE VIOLET', 'BROWN', 'CADET
+    # BLUE', 'CORAL', 'CORNFLOWER BLUE', 'CYAN', 'DARK GREY', 'DARK GREEN', 'DARK OLIVE
+    # GREEN', 'DARK ORCHID', 'DARK SLATE BLUE', 'DARK SLATE GREY', 'DARK TURQUOISE',
+    # 'DIM GREY', 'FIREBRICK', 'FOREST GREEN', 'GOLD', 'GOLDENROD', 'GREY', 'GREEN',
+    # 'GREEN YELLOW', 'INDIAN RED', 'KHAKI', 'LIGHT BLUE', 'LIGHT GREY', 'LIGHT STEEL
+    # BLUE', 'LIME GREEN', 'MAGENTA', 'MAROON', 'MEDIUM AQUAMARINE', 'MEDIUM BLUE',
+    # 'MEDIUM FOREST GREEN', 'MEDIUM GOLDENROD', 'MEDIUM ORCHID', 'MEDIUM SEA GREEN',
+    # 'MEDIUM SLATE BLUE', 'MEDIUM SPRING GREEN', 'MEDIUM TURQUOISE', 'MEDIUM VIOLET
+    # RED', 'MIDNIGHT BLUE', 'NAVY', 'ORANGE', 'ORANGE RED', 'ORCHID', 'PALE GREEN',
+    # 'PINK', 'PLUM', 'PURPLE', 'RED', 'SALMON', 'SEA GREEN', 'SIENNA', 'SKY BLUE',
+    # 'SLATE BLUE', 'SPRING GREEN', 'STEEL BLUE', 'TAN', 'THISTLE', 'TURQUOISE',
+    # 'VIOLET', 'VIOLET RED', 'WHEAT', 'WHITE', 'YELLOW', 'YELLOW GREEN',
 ]
 
 group_styles = None
@@ -232,7 +242,7 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
         # do some color foo
         try:
             self._re_parser.parse(self._text)
-        except:
+        except Exception:
             pass
         regex = self.ConvertRegex(self._text)
         if "\n" in regex:
@@ -387,7 +397,7 @@ class MyReplacePatternStyledTextCtrl(MyPatternStyledTextCtrl):
             newtext = self.GetValue()
             if newtext != self._text:
                 self._text = newtext
-                ign = self._pattern_parser.parse(self._text)
+                self._pattern_parser.parse(self._text)
                 self._CallHandlers(replace=self._text)
             if timing:
                 __stop_time = time.time()
@@ -460,13 +470,14 @@ class MyStyledTextCtrl(wx.stc.StyledTextCtrl):
             self._regex_text = regex_text
             try:
                 self._regex = re.compile(self._regex_text, self._regex_flags)
-            except:
+            except Exception:
                 log(
                     1,
                     "MyPatternStyledTextCtrl.SetRegex",
                     "Invalid RE: %s" % self._regex,
                 )
-                self._regex = re.compile("\b\B")
+                # match nothing
+                self._regex = re.compile(r"\b\B")
             self._CallHandlers(regex=self._regex, regex_text=self._regex_text)
             self.OnUpdate(caller="MyStyledTextCtrl.SetRegex")
 
@@ -508,7 +519,7 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
     def SetPreferred(self, regex, flags):
         try:
             self._preferred = re.compile(regex, flags)
-        except:
+        except Exception:
             self._preferred = None
 
     def SetShowCorrections(self, val):

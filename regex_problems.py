@@ -1,10 +1,8 @@
-#!/usr/bin/env python
 
 import wx
 from wx import stc
 import regex_app
 
-import re
 import os
 
 import problems
