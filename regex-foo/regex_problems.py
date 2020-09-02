@@ -193,7 +193,7 @@ class BasePatternMatchingProblemsPane(BasePatternMatchingPane):
         dlg.ShowModal()
         del dlg
     def NextProblem(self, evt):
-        print 'NextProblem'
+        print('NextProblem')
         curr = self._problem_number
         n = curr + 1
         if n < len(self._problems):
@@ -203,7 +203,7 @@ class BasePatternMatchingProblemsPane(BasePatternMatchingPane):
             if n == (len(self._problems)-1):
                 self.forward.Disable()
     def PrevProblem(self, evt):
-        print 'PrevProblem'
+        print('PrevProblem')
         curr = self._problem_number
         p = curr - 1
         if p >= 0:
@@ -213,7 +213,7 @@ class BasePatternMatchingProblemsPane(BasePatternMatchingPane):
             if curr == (len(self._problems)-1):
                 self.forward.Enable()
     def LoadProblem(self, number = None):
-        print 'LoadProblem(%s)' % number
+        print('LoadProblem(%s)' % number)
         if number is None:
             number = self._problem_number
         oldproblem = self._problems[self._problem_number]

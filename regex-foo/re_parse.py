@@ -149,7 +149,7 @@ class ExtendedREParser(BaseREParser):
         self.parser = pp.LineStart() + extended_reg_exp + pp.Optional(invalid) + pp.LineEnd()
 
 def toklen(toks):
-    if type(toks) in ( types.StringType, types.UnicodeType):
+    if type(toks) in ( bytes, str):
         return len(toks)
     tlen = 0
     for t in toks:
@@ -164,20 +164,20 @@ class TestHandlerObject(object):
         self.string = s
         self.groups = {}
     def endParsing(self):
-        print (' '*9).join(map(str, range(8)))
-        print ''.join( ['0123456789' for i in range(8)] )
+        print((' '*9).join(map(str, list(range(8)))))
+        print(''.join( ['0123456789' for i in range(8)] ))
 
-        print self.string
-        print self.formatting
+        print(self.string)
+        print(self.formatting)
 
-        print self.groups
+        print(self.groups)
     def handleType(self, s, loc, toks, t_name):
         # s   = the original string being parsed (see note below)
         # loc = the location of the matching substring
         # toks = a list of the matched tokens, packaged as a ParseResults object
-        print s
-        print loc
-        print toks
+        print(s)
+        print(loc)
+        print(toks)
         self.formatting.insert(0, (t_name, loc, toklen(toks[0]), loc+toklen(toks) - toklen(toks[-1]), toklen(toks[-1])) )
     def handleDupl(self, s, loc, toks):
         self.handleType(s, loc, toks, 'dupl')

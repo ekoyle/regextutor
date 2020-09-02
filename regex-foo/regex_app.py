@@ -9,7 +9,7 @@ import os
 
 import time
 
-import thread
+import _thread
 
 # begin wxGlade: extracode
 from wx import stc
@@ -60,10 +60,10 @@ def log(level, fcn, s, sub=None,):
         if level & log_level:
             if sub:
                 s = s % sub
-            print fcn+': ', s
-    except Exception, e:
-        print e
-        print level, fcn, s, sub
+            print(fcn+': ', s)
+    except Exception as e:
+        print(e)
+        print(level, fcn, s, sub)
 
 class MyTextStyle(object):
     # this will be slow, but I don't really mind much
@@ -84,7 +84,7 @@ class MyTextStyle(object):
                 # sub-range?
                 if d_stop < stop:
                     e = Exception('attempted to style across style boundaries -- bad')
-                    print e
+                    print(e)
                     raise e
                 d_match = i
                 break
@@ -107,14 +107,14 @@ def style_init():
     # wx is goofy about fonts... we have to create an App first...
     global DUPL_STYLE
     DUPL_STYLE = wx.TextAttr(wx.NullColour,"NAVY")
-    bracket_font = wx.Font(FONT_SIZE,wx.FONTSTYLE_NORMAL,wx.NORMAL,wx.FONTWEIGHT_BOLD,faceName='Courier')
+    bracket_font = wx.Font(wx.FontInfo(FONT_SIZE).FaceName('Courier').Bold())
     global BRACKET_STYLE
     #BRACKET_STYLE = wx.TextAttr(wx.NullColour,"DARK GREY",bracket_font)
     BRACKET_STYLE = wx.TextAttr(wx.NullColour,wx.NullColour,bracket_font)
     global group_styles
     group_styles = [ wx.TextAttr( i, wx.NullColour ) for i in group_color_names ]
     global default_font
-    default_font = wx.Font(12,wx.FONTSTYLE_NORMAL,wx.NORMAL,wx.FONTWEIGHT_NORMAL,faceName='Courier')
+    default_font = wx.Font(wx.FontInfo(12).FaceName('Courier'))
     global default_style
     default_style = wx.TextAttr( 'WHITE', 'BLACK', default_font)
     global STR_ESC_STYLE
@@ -129,8 +129,8 @@ def style_init():
 def print_style(style):
     try:
         log( 8, 'print_style', 'Font: %s Color: %s BG Color: %s', (style.GetFont(), style.GetTextColour(), style.GetBackgroundColour()) )
-    except Exception, e:
-        print e
+    except Exception as e:
+        print(e)
         raise
 
 class MyROTextCtrl(stc.StyledTextCtrl):
@@ -151,7 +151,7 @@ class MyROTextCtrl(stc.StyledTextCtrl):
 
 class MyPatternStyledTextCtrl(wx.TextCtrl):
     def __init__(self, *args, **kw):
-        if not kw.has_key('style'):
+        if 'style' not in kw:
             kw['style'] = wx.TE_RICH2 | wx.TE_MULTILINE
         wx.TextCtrl.__init__(self, *args, **kw)
         if not self.SetDefaultStyle( default_style ):
@@ -178,7 +178,7 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
         for callback in self.__callbacks:
             try:
                 callback(*args, **kw)
-            except Exception,e:
+            except Exception as e:
                 log(1, 'MyPatternStyledTextCtrl._CallHandlers', e)
                 raise
     def OnUpdate(self, evt=None, **kw):
@@ -213,7 +213,7 @@ class MyPatternStyledTextCtrl(wx.TextCtrl):
             __stop_time = time.time()
             __time_delta = __stop_time-__start_time
             if __time_delta > timing_threshold:
-                print 'MyPatternStyledTextCtrl.OnUpdate: ',__stop_time-__start_time
+                print('MyPatternStyledTextCtrl.OnUpdate: ',__stop_time-__start_time)
         self.__on_update = False
     def startParsing(self,s):
         self._clear_style()
@@ -316,7 +316,7 @@ class MyReplacePatternStyledTextCtrl(MyPatternStyledTextCtrl):
                 __stop_time = time.time()
                 __time_delta = __stop_time-__start_time
                 if __time_delta > timing_threshold:
-                    print 'MyPatternStyledTextCtrl.OnUpdate: ',__stop_time-__start_time
+                    print('MyPatternStyledTextCtrl.OnUpdate: ',__stop_time-__start_time)
         finally:
             self.__on_update = False
 
@@ -349,8 +349,8 @@ class MyStyledTextCtrl(wx.stc.StyledTextCtrl):
         self.IndicatorSetForeground(STYLE_STRIKETHROUGH_NO, "RED")
         self.IndicatorSetStyle(STYLE_UNDERLINE_NO, stc.STC_INDIC_PLAIN)
         self.IndicatorSetForeground(STYLE_UNDERLINE_NO, "RED")
-        self._lock = thread.allocate_lock()
-        self._busy_lock = thread.allocate_lock()
+        self._lock = _thread.allocate_lock()
+        self._busy_lock = _thread.allocate_lock()
     def AddHandler(self, handler):
         self._callbacks.append(handler)
     def _CallHandlers(self, *args, **kw):
@@ -359,12 +359,12 @@ class MyStyledTextCtrl(wx.stc.StyledTextCtrl):
     def SetRegex(self, **kw):
         log(4, "MyStyledTextCtrl.SetRegex", kw)
         recompile = False
-        if kw.has_key('flags'):
+        if 'flags' in kw:
             flags = kw['flags']
             if self._regex_flags != flags:
                 self._regex_flags = flags
                 recompile=True
-        if kw.has_key('regex_text'):
+        if 'regex_text' in kw:
             regex_text = kw['regex_text']
         else:
             regex_text = self._regex_text
@@ -378,13 +378,13 @@ class MyStyledTextCtrl(wx.stc.StyledTextCtrl):
             self._CallHandlers( regex=self._regex, regex_text = self._regex_text )
             self.OnUpdate(caller='MyStyledTextCtrl.SetRegex')
     def OnUpdate(self, evt=None, **kw):
-        thread.start_new_thread(self.OnUpdateCommon,(evt,),kw)
+        _thread.start_new_thread(self.OnUpdateCommon,(evt,),kw)
     def OnUpdateCommon(self, evt=None, **kw):
         if timing:
             __start_time = time.time()
         if not self._lock.acquire(0):
              if not self._busy_lock.acquire(0):
-                 print "Skipping OnUpdate"
+                 print("Skipping OnUpdate")
                  return
              self._lock.acquire()
              self._busy_lock.release()
@@ -395,7 +395,7 @@ class MyStyledTextCtrl(wx.stc.StyledTextCtrl):
                 __stop_time = time.time()
                 __time_delta = __stop_time-__start_time
                 if __time_delta > timing_threshold:
-                    print 'MyPatternStyledTextCtrl.OnUpdate: ',__stop_time-__start_time
+                    print('MyPatternStyledTextCtrl.OnUpdate: ',__stop_time-__start_time)
         finally:
             self._lock.release()
 
@@ -442,7 +442,7 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
             try:
                 if not match_iter:
                     raise StopIteration('not really an iterator, you know?')
-                pcurr = match_iter.next()
+                pcurr = next(match_iter)
                 pstart = pcurr.start()
                 pend = pcurr.end()
                 #print 'pstart: %s, pend: %s' % (pstart, pend)
@@ -455,7 +455,7 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
 
         def __style(start, stop, new_style, mask=0xe0):
             log(8,'MyRegexMatchCtrl.DoRegexStyle', "__style(%s, %s, %s, %s)", (start, stop, new_style, mask))
-            for i in xrange(start, stop):
+            for i in range(start, stop):
                 style[i] = new_style | style[i] & mask
         def __underline(start, stop):
             __style(start, stop, STYLE_UNDERLINE, 0xff)
@@ -537,10 +537,10 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
                 __underline(m.start(), m.end())
         wx.CallAfter(self.StartStyling, line_start, 0xff)
         style_str = ''.join(map(chr,style))
-        wx.CallAfter(self.SetStyleBytes, len(style), style_str)
+        wx.CallAfter(self.SetStyleBytes, len(style), style_str.encode())
         wx.CallAfter(self._CallHandlers, re_passed_test=self._re_passed_test)
     def GetLineNum( self, pos ):
-        for i in xrange(len(self._text_line_start)):
+        for i in range(len(self._text_line_start)):
             if self._text_line_start[i] > pos:
                 return i-1
         return len(self._text_line_start)-1
@@ -553,7 +553,7 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
                 self._text = new_text
                 self._text_line_start = [0]
                 curr = 0
-                for i in xrange(len(self._text)):
+                for i in range(len(self._text)):
                     if self._text[i] == '\n':
                         self._text_line_start.append(i+1)
                 wx.CallAfter(self._CallHandlers, text=self._text)
@@ -580,7 +580,7 @@ class MyReplaceTextCtrl(MyStyledTextCtrl):
         try:
             new_text = self._regex.sub(self._replace, self._text, )
             log(256, 'MyReplaceTextCtrl.OnUpdate', 'new_text: %s', new_text)
-        except Exception, e:
+        except Exception as e:
             log(1, 'MyReplaceTextCtrl.OnUpdate', e)
             raise
         #self.SetReadOnly(False)
@@ -592,22 +592,22 @@ class MyReplaceTextCtrl(MyStyledTextCtrl):
     def SetValues(self, **kw):
         log(4, "MyReplaceTextCtrl.SetValues", kw)
         updated = False
-        if kw.has_key('replace'):
+        if 'replace' in kw:
             replace = kw['replace']
             if self._replace != replace:
                 self._replace = replace
                 updated=True
-        if kw.has_key('text'):
+        if 'text' in kw:
             text = kw['text']
             if self._text != text:
                 self._text = text
                 updated=True
-        if kw.has_key('regex'):
+        if 'regex' in kw:
             regex = kw['regex']
             if self._regex != regex:
                 self._regex = regex
                 updated=True
-        if kw.has_key('re_test_passed'):
+        if 're_test_passed' in kw:
             passed = kw['re_test_passed']
             if self._re_test_passed != passed:
                 self._re_test_passed = passed
