@@ -54,11 +54,11 @@ INVALID_STYLE = None
 FONT_SIZE = 14
 
 STYLE_MASK = stc.STC_INDICS_MASK
-STYLE_UNDERLINE = stc.STC_INDIC1_MASK
-STYLE_STRIKETHROUGH = stc.STC_INDIC2_MASK
+STYLE_UNDERLINE = stc.STC_INDIC0_MASK
+STYLE_STRIKETHROUGH = stc.STC_INDIC1_MASK
 
-STYLE_UNDERLINE_NO = 1
-STYLE_STRIKETHROUGH_NO = 2
+STYLE_UNDERLINE_NO = 0
+STYLE_STRIKETHROUGH_NO = 1
 
 log_level = 1
 # log_level = 1|2|4|8
@@ -415,9 +415,9 @@ class MyReplacePatternStyledTextCtrl(MyPatternStyledTextCtrl):
             self.__on_update = False
 
 
-RE_MATCH_MARKER = 1
-RE_TOOMUCH_MARKER = 2
-RE_MISSED_MARKER = 3
+RE_MATCH_MARKER = 0
+RE_CORRECT_MARKER = 1
+RE_INCORRECT_MARKER = 2
 
 
 class MyStyledTextCtrl(wx.stc.StyledTextCtrl):
@@ -443,8 +443,8 @@ class MyStyledTextCtrl(wx.stc.StyledTextCtrl):
         self.SetMarginWidth(0, 30)
         self.SetMarginType(1, stc.STC_MARGIN_SYMBOL)
         self.MarkerDefine(RE_MATCH_MARKER, stc.STC_MARK_ARROW, "GREEN", "BLACK")
-        self.MarkerDefine(RE_TOOMUCH_MARKER, stc.STC_MARK_CIRCLEPLUS, "RED", "BLUE")
-        self.MarkerDefine(RE_MISSED_MARKER, stc.STC_MARK_CIRCLEMINUS, "RED", "BLUE")
+        self.MarkerDefine(RE_CORRECT_MARKER, stc.STC_MARK_CIRCLE, "BLACK", "GREEN")
+        self.MarkerDefine(RE_INCORRECT_MARKER, stc.STC_MARK_ARROW, "BLUE", "RED")
         self.IndicatorSetStyle(STYLE_STRIKETHROUGH_NO, stc.STC_INDIC_STRIKE)
         self.IndicatorSetForeground(STYLE_STRIKETHROUGH_NO, "RED")
         self.IndicatorSetStyle(STYLE_UNDERLINE_NO, stc.STC_INDIC_PLAIN)
@@ -549,127 +549,76 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
 
         # self.StyleClearAll()
         wx.CallAfter(self.MarkerDeleteAll, RE_MATCH_MARKER)
-        wx.CallAfter(self.MarkerDeleteAll, RE_TOOMUCH_MARKER)
-        wx.CallAfter(self.MarkerDeleteAll, RE_MISSED_MARKER)
-        style = [STYLE_DEFAULT] * len(line)
-        pmatches = None
-        if self._preferred and self._show_corrections:
-            debug("Correcting")
-            pmatches = self._preferred.finditer(line)
+        wx.CallAfter(self.MarkerDeleteAll, RE_CORRECT_MARKER)
+        wx.CallAfter(self.MarkerDeleteAll, RE_INCORRECT_MARKER)
 
-        def _get_next(match_iter):
-            try:
-                if not match_iter:
-                    raise StopIteration("not really an iterator, you know?")
-                pcurr = next(match_iter)
-                pstart = pcurr.start()
-                pend = pcurr.end()
-                debug("pstart: %s, pend: %s" % (pstart, pend))
-            except StopIteration:
-                pcurr = None
-                pstart = None
-                pend = None
-                debug("no more pmatches")
-            return (pcurr, pstart, pend)
+        matched_correct = [None] * len(line)
+        matched_provided = [None] * len(line)
 
-        def __style(start, stop, new_style, mask=0xE0):
-            log(
-                8,
-                "MyRegexMatchCtrl.DoRegexStyle",
-                "__style(%s, %s, %s, %s)",
-                (start, stop, new_style, mask),
-            )
-            for i in range(start, stop):
-                style[i] = new_style | style[i] & mask
-
-        def __underline(start, stop):
-            __style(start, stop, STYLE_UNDERLINE, 0xFF)
-            wx.CallAfter(self.MarkerAdd, self.GetLineNum(start), RE_MISSED_MARKER)
-            self._re_passed_test = False
-
-        def __strikethrough(start, stop):
-            __style(start, stop, STYLE_STRIKETHROUGH, 0xFF)
-            wx.CallAfter(self.MarkerAdd, self.GetLineNum(start), RE_TOOMUCH_MARKER)
-            self._re_passed_test = False
-
-        matched = False
-        m_handled_to = 0
-        for match in self._regex.finditer(line):
-            if not matched:
-                (pcurr, pstart, pend) = _get_next(pmatches)
-                matched = True
-            mstart = match.start()
-            mend = match.end()
-            debug("mstart: %s, mend: %s" % (mstart, mend))
-            debug(pcurr, pstart, pend)
-            curr_line_no = self.GetLineNum(match.start())
-            if not self._show_corrections:
-                debug("self.MarkerAdd(%s, %s)" % (curr_line_no, RE_MATCH_MARKER))
-                wx.CallAfter(self.MarkerAdd, curr_line_no, RE_MATCH_MARKER)
-            debug(
-                "_show_corrections: %s, mstart: %s, mend: %s"
-                % (self._show_corrections, mstart, mend)
-            )
-            while pmatches and pcurr:
-                if mstart == pstart and mend == pend:
-                    debug(
-                        "mstart == pstart and mend == pend", mstart, mend, pstart, pend
-                    )
-                    # Great job! moving on...
-                    m_handled_to = mend
-                    (pcurr, pstart, pend) = _get_next(pmatches)
-                    break
-                elif mstart > pend:
-                    debug("mstart > pend", mstart, mend, pstart, pend)
-                    # Missed completely, none of this was matched, but should have been
-                    __underline(max(pstart, m_handled_to), pend)
-                elif mend < pstart:
-                    if m_handled_to < mend:
-                        debug("mend < pstart", mstart, mend, pstart, pend)
-                        __strikethrough(max(mstart, m_handled_to), mend)
-                    m_handled_to = mend
-                    break
-                else:
-                    debug("else", mstart, mend, pstart, pend)
-                    # we have some overlap :(
-                    if mstart < pstart:
-                        debug("-- mstart < pstart", mstart, mend, pstart, pend)
-                        __strikethrough(max(mstart, m_handled_to), pstart)
-                        m_handled_to = pstart
-                    if pstart < mstart:
-                        debug("-- pstart < mstart", mstart, mend, pstart, pend)
-                        __underline(pstart, mstart)
-                    if pend < mend:
-                        m_handled_to = mend
-                        debug("-- pend < mend", mstart, mend, pstart, pend)
-                        __strikethrough(pend, max(m_handled_to, mend))
-                    if mend < pend:
-                        debug("--mend < pend", mstart, mend, pstart, pend)
-                        m_handled_to = mend
-                        __underline(max(m_handled_to, mend), pend)
-                        break
-                    elif mend == pend:
-                        debug("--mend == pend", mstart, mend, pstart, pend)
-                        m_handled_to = mend
-                        (pcurr, pstart, pend) = _get_next(pmatches)
-                        break
-                    # FIXME: Mark this line accordingly
-                (pcurr, pstart, pend) = _get_next(pmatches)
-            if self._show_corrections and not pcurr and m_handled_to < mend:
+        def do_match(matched_array, regex):
+            for match in regex.finditer(line):
+                # FIXME
+                num_groups = len(match.groups())
+                mstart = match.start()
+                mend = match.end()
+                debug("mstart: %s, mend: %s" % (mstart, mend))
+                curr_line_no = self.GetLineNum(match.start())
+                if not self._show_corrections:
+                    debug("self.MarkerAdd(%s, %s)" % (curr_line_no, RE_MATCH_MARKER))
+                    wx.CallAfter(self.MarkerAdd, curr_line_no, RE_MATCH_MARKER)
                 debug(
-                    "self._show_corrections: %s pcurr: %s m_handled_to: %s"
-                    % (self._show_corrections, pcurr, m_handled_to)
+                    "_show_corrections: %s, mstart: %s, mend: %s"
+                    % (self._show_corrections, mstart, mend)
                 )
-                __strikethrough(max(m_handled_to, mstart), mend)
-            num_groups = len(match.groups())
-            for i in range(num_groups + 1):
-                new_style = self.get_style(i)
-                __style(match.start(i), match.end(i), new_style)
-        if not matched and pmatches:
-            debug("!matched and pmatches", mstart, mend, pstart, pend)
-            for m in pmatches:
-                __underline(m.start(), m.end())
+                debug("num_groups:", num_groups)
+                for i in range(num_groups + 1):
+                    for j in range(match.start(i), match.end(i)):
+                        debug(f"i: {i}, j: {j}, ({match.start(i)}, {match.end(i)})")
+                        matched_array[j] = i
+
+        if self._preferred is not None and self._show_corrections:
+            debug("Correcting:")
+            do_match(matched_correct, self._preferred)
+
+        do_match(matched_provided, self._regex)
+
+        style = []
+
+        self._incorrect_lines = set()
+
+        for i in range(len(line)):
+            _curr_style = STYLE_DEFAULT
+            if matched_provided[i] is not None:
+                _curr_style = self.get_style(matched_provided[i])
+            if self._show_corrections:
+                if matched_correct[i] is not None and matched_provided[i] is None:
+                    # missed something
+                    _curr_style |= STYLE_UNDERLINE
+                    self._incorrect_lines.add(self.GetLineNum(i))
+                elif matched_correct[i] is None and matched_provided[i] is not None:
+                    # matched too much
+                    _curr_style |= STYLE_STRIKETHROUGH
+                    self._incorrect_lines.add(self.GetLineNum(i))
+
+            style.append(_curr_style)
+
+        def __mark_correct(num_lines):
+            if not self._show_corrections:
+                return
+            for i in range(num_lines):
+                if i in self._incorrect_lines:
+                    wx.CallAfter(self.MarkerAdd, i, RE_INCORRECT_MARKER)
+                else:
+                    wx.CallAfter(self.MarkerAdd, i, RE_CORRECT_MARKER)
+
         wx.CallAfter(self.StartStyling, line_start, 0xFF)
+
+        __mark_correct(len(self._text_line_start) + 1)  # number of lines
+
+        debug("matched_provided:", matched_provided)
+        debug("matched_correct:", matched_correct)
+        debug("style:", style)
+
         style_str = "".join(map(chr, style))
         wx.CallAfter(self.SetStyleBytes, len(style), style_str.encode())
         wx.CallAfter(self._CallHandlers, re_passed_test=self._re_passed_test)
