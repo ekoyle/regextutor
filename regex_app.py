@@ -54,11 +54,11 @@ INVALID_STYLE = None
 FONT_SIZE = 14
 
 STYLE_MASK = stc.STC_INDICS_MASK
-STYLE_UNDERLINE = stc.STC_INDIC0_MASK
-STYLE_STRIKETHROUGH = stc.STC_INDIC1_MASK
+STYLE_UNDERLINE = stc.STC_INDIC1_MASK
+STYLE_STRIKETHROUGH = stc.STC_INDIC2_MASK
 
-STYLE_UNDERLINE_NO = 0
-STYLE_STRIKETHROUGH_NO = 1
+STYLE_UNDERLINE_NO = 1
+STYLE_STRIKETHROUGH_NO = 2
 
 log_level = 1
 # log_level = 1|2|4|8
@@ -619,8 +619,11 @@ class MyRegexMatchCtrl(MyStyledTextCtrl):
         debug("matched_correct:", matched_correct)
         debug("style:", style)
 
-        style_str = "".join(map(chr, style))
-        wx.CallAfter(self.SetStyleBytes, len(style), style_str.encode())
+        def int_to_byte(i):
+            return i.to_bytes(1, 'big', signed=False)
+
+        style_str = b"".join(map(int_to_byte, style))
+        wx.CallAfter(self.SetStyleBytes, len(style), style_str)
         wx.CallAfter(self._CallHandlers, re_passed_test=self._re_passed_test)
 
     def GetLineNum(self, pos):
